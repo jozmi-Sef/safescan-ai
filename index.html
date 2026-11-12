@@ -11,6 +11,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+<script src="epp-logic.js"></script>
+<script src="epp.js"></script>
 <style>
 :root{
   --bg:#0f1216; --bg2:#151a20; --card:#1b2129; --card2:#222a34; --line:#2c3541;
@@ -71,7 +74,10 @@ label.lbl{display:block;font-size:13px;font-weight:600;color:var(--muted);margin
 .scanner .laser{position:absolute;left:18%;right:18%;height:2px;background:var(--amber);box-shadow:0 0 14px 3px rgba(245,179,0,.6);top:20%;animation:laser 2.2s ease-in-out infinite alternate;display:none}
 .scanner.on .laser{display:block}
 @keyframes laser{to{top:80%}}
-.scanner .placeholder{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:var(--muted)}
+.epp-stage{position:relative;aspect-ratio:3/4;border-radius:20px;overflow:hidden;background:radial-gradient(circle at 50% 40%,#1d252f,#0b0e12);border:1px solid var(--line)}
+.epp-stage video,.epp-stage img,.epp-stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.epp-stage img{display:none}
+.scanner .placeholder,.epp-stage .placeholder{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:var(--muted)}
 .scanner.on .placeholder{display:none}
 .status{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--dim)}
@@ -150,7 +156,7 @@ label.lbl{display:block;font-size:13px;font-weight:600;color:var(--muted);margin
 
 /* Nav */
 nav.bottom{position:fixed;left:0;right:0;bottom:0;z-index:30;padding-bottom:env(safe-area-inset-bottom);background:rgba(17,21,26,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line)}
-nav.bottom .inner2{max-width:480px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);height:var(--nav)}
+nav.bottom .inner2{max-width:480px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);height:var(--nav)}
 nav.bottom a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--dim);text-decoration:none;font-size:12px;font-weight:700;position:relative}
 nav.bottom a.active{color:var(--amber)}
 nav.bottom a.active::before{content:"";position:absolute;top:0;width:32px;height:3px;border-radius:0 0 3px 3px;background:var(--amber)}
@@ -256,6 +262,30 @@ body.chat-mode .timer{bottom:calc(var(--nav) + 130px + env(safe-area-inset-botto
     <!-- ASSET -->
     <section class="view" id="view-asset"></section>
 
+    <!-- EPP -->
+    <section class="view" id="view-epp">
+      <h1>Detección de EPP</h1>
+      <div class="muted" style="margin-bottom:12px">Verifica casco y chaleco, y detecta si están mal colocados. Procesa en tu dispositivo.</div>
+      <div class="epp-stage" id="eppStage">
+        <video id="eppVideo" playsinline muted></video>
+        <img id="eppStill" alt="Imagen analizada">
+        <canvas id="eppOverlay"></canvas>
+        <div class="placeholder" id="eppPlaceholder"><div>
+          <p style="margin:0 0 14px">Activa la cámara o sube una foto para verificar el EPP.</p>
+          <button class="btn sm" id="eppCam" style="margin:0 auto">Activar cámara</button>
+        </div></div>
+      </div>
+      <div class="row between" style="margin:12px 2px 6px">
+        <span class="status"><span class="dot" id="eppDot"></span><span id="eppStatus">Inactivo</span></span>
+        <div class="row">
+          <label class="btn ghost sm" style="cursor:pointer">Subir foto<input type="file" accept="image/*" id="eppFile" hidden></label>
+          <button class="btn ghost sm" id="eppStop" style="display:none">Detener</button>
+        </div>
+      </div>
+      <p class="muted small" id="eppModelInfo" style="margin:0 0 14px"></p>
+      <div id="eppResults"></div>
+    </section>
+
     <!-- CHAT -->
     <section class="view" id="view-chat">
       <div class="chat-head">
@@ -315,6 +345,7 @@ body.chat-mode .timer{bottom:calc(var(--nav) + 130px + env(safe-area-inset-botto
   <div class="inner2">
     <a href="#scan" data-nav="scan"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg>Escanear</a>
     <a href="#asset" data-nav="asset"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>Activo</a>
+    <a href="#epp" data-nav="epp"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a8 8 0 0 1 16 0z"/><path d="M2 18h20M12 7V4"/></svg>EPP</a>
     <a href="#chat" data-nav="chat"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>IA Seguridad</a>
     <a href="#history" data-nav="history"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2"/></svg>Historial<span class="badge" id="histBadge" style="display:none"></span></a>
   </div>
@@ -482,7 +513,7 @@ function riskScore(a){
 }
 
 /* ===================== ROUTER ===================== */
-const views = ["scan","asset","chat","history"];
+const views = ["scan","asset","epp","chat","history"];
 function route(){
   let v = location.hash.replace("#","") || "scan";
   if(!views.includes(v)) v = "scan";
@@ -491,6 +522,7 @@ function route(){
   $("#composer").style.display = v==="chat" ? "block" : "none";
   document.body.classList.toggle("chat-mode", v==="chat");
   if(v!=="scan") stopCamera();
+  if(v!=="epp" && window.eppStop) window.eppStop();
   if(v==="asset") renderAsset();
   if(v==="history") renderHistory();
   if(v==="chat"){ renderChatContext(); if(!chatStarted) startChat(); setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),50); }
