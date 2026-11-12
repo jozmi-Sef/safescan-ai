@@ -1,0 +1,1047 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1216">
+<meta name="description" content="Escanea activos industriales para obtener información de seguridad, checklist previo al uso y asistente IA.">
+<title>SafeScan AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{
+  --bg:#0f1216; --bg2:#151a20; --card:#1b2129; --card2:#222a34; --line:#2c3541;
+  --text:#eef1f4; --muted:#93a0ae; --dim:#6b7785;
+  --amber:#f5b300; --amber-ink:#1a1400; --red:#ef4444; --red-bg:#3a1517;
+  --green:#22c55e; --green-bg:#0f2e1c; --blue:#3b82f6; --orange:#f97316;
+  --r:14px; --nav:72px;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:#07090b;color:var(--text);font-family:"Archivo",system-ui,sans-serif;font-size:15px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.app{max-width:480px;margin:0 auto;min-height:100%;background:var(--bg);position:relative;padding-bottom:calc(var(--nav) + 16px + env(safe-area-inset-bottom));box-shadow:0 0 0 1px #1a2028}
+header.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(15,18,22,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.02em;font-size:18px}
+.brand .logo{width:32px;height:32px;border-radius:9px;background:var(--amber);display:grid;place-items:center;color:var(--amber-ink)}
+.brand b{color:var(--amber)}
+.iconbtn{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--card);display:grid;place-items:center}
+.iconbtn:active{transform:scale(.95)}
+main{padding:16px}
+.view{display:none;animation:fade .25s ease}
+.view.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+h1{font-size:26px;line-height:1.15;margin:0 0 6px;letter-spacing:-.02em}
+h2{font-size:15px;margin:0;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+.muted{color:var(--muted)} .small{font-size:13px} .mono{font-family:var(--mono)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.stack>*+*{margin-top:12px}
+.row{display:flex;align-items:center;gap:10px}
+.between{justify-content:space-between}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:52px;border-radius:14px;border:0;font-weight:700;font-size:16px;background:var(--amber);color:var(--amber-ink);transition:transform .1s, filter .15s}
+.btn:active{transform:scale(.98)} .btn:hover{filter:brightness(1.06)}
+.btn.ghost{background:var(--card2);color:var(--text);border:1px solid var(--line)}
+.btn.red{background:var(--red);color:#fff}
+.btn.green{background:var(--green);color:#04210f}
+.btn.sm{min-height:40px;font-size:14px;border-radius:11px;width:auto;padding:0 14px}
+.btn[disabled]{opacity:.45;pointer-events:none}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--card2);border:1px solid var(--line);font-size:13px;font-weight:600;white-space:nowrap}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.tag{font-family:var(--mono);font-size:12px;color:var(--amber);letter-spacing:.04em}
+.pill{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:4px 8px;border-radius:6px}
+.pill.ok{background:var(--green-bg);color:var(--green)} .pill.bad{background:var(--red-bg);color:#ff8a8a} .pill.warn{background:#3a2a05;color:var(--amber)} .pill.opt{background:var(--card2);color:var(--muted)}
+input.field,select.field,textarea.field{width:100%;min-height:50px;border-radius:12px;border:1px solid var(--line);background:var(--bg2);padding:12px 14px;outline:none}
+input.field:focus,textarea.field:focus,select.field:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(245,179,0,.18)}
+label.lbl{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:0 0 6px}
+
+/* Scanner */
+.scanner{position:relative;aspect-ratio:1/1;border-radius:20px;overflow:hidden;background:radial-gradient(circle at 50% 40%,#1d252f,#0b0e12);border:1px solid var(--line)}
+.scanner video,.scanner canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.scanner .frame{position:absolute;inset:16%;}
+.scanner .frame i{position:absolute;width:36px;height:36px;border:4px solid var(--amber)}
+.scanner .frame i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0;border-radius:10px 0 0 0}
+.scanner .frame i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0;border-radius:0 10px 0 0}
+.scanner .frame i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0;border-radius:0 0 0 10px}
+.scanner .frame i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0;border-radius:0 0 10px 0}
+.scanner .laser{position:absolute;left:18%;right:18%;height:2px;background:var(--amber);box-shadow:0 0 14px 3px rgba(245,179,0,.6);top:20%;animation:laser 2.2s ease-in-out infinite alternate;display:none}
+.scanner.on .laser{display:block}
+@keyframes laser{to{top:80%}}
+.scanner .placeholder{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:var(--muted)}
+.scanner.on .placeholder{display:none}
+.status{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--dim)}
+.dot.live{background:var(--green);box-shadow:0 0 0 4px rgba(34,197,94,.2);animation:pulse 1.4s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 8px rgba(34,197,94,0)}}
+.assetlist button{width:100%;text-align:left;display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:var(--bg2);border:1px solid var(--line)}
+.assetlist button+button{margin-top:8px}
+.assetlist .ic{width:40px;height:40px;border-radius:10px;background:var(--card2);display:grid;place-items:center;flex:none}
+
+/* Asset */
+.hero{position:relative;overflow:hidden}
+.gauge{width:96px;height:96px;flex:none;position:relative}
+.gauge svg{transform:rotate(-90deg)}
+.gauge .val{position:absolute;inset:0;display:grid;place-items:center;text-align:center;font-weight:800;font-size:24px;line-height:1}
+.gauge .val small{display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+.warn-card{background:linear-gradient(180deg,#3a1517,#2a1214);border:1px solid #6b2226;border-radius:var(--r);padding:16px}
+.warn-card h3{margin:0 0 6px;color:#ff8a8a;font-size:16px;display:flex;gap:8px;align-items:center}
+.limit{display:flex;align-items:center;gap:12px;margin-top:12px;padding:12px;border-radius:12px;background:rgba(0,0,0,.25)}
+.ppe{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.ppe:first-of-type{border-top:0}
+.ppe .ic{width:38px;height:38px;border-radius:10px;background:var(--card2);display:grid;place-items:center;flex:none;color:var(--amber)}
+.docs{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.doc{text-align:left;padding:14px;border-radius:var(--r);background:var(--card);border:1px solid var(--line)}
+.doc b{display:block;margin:8px 0 2px;font-size:14px}
+.alert-inline{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:12px;font-size:14px}
+.alert-inline.bad{background:var(--red-bg);color:#ffb4b4;border:1px solid #6b2226}
+.alert-inline.ok{background:var(--green-bg);color:#9ff0bd;border:1px solid #1d5a35}
+.alert-inline.warn{background:#2e2205;color:#ffd666;border:1px solid #5c4507}
+
+/* Checklist overlay */
+.overlay{position:fixed;inset:0;z-index:60;background:var(--bg);display:none;overflow:auto}
+.overlay.open{display:block;animation:fade .2s}
+.overlay .inner{max-width:480px;margin:0 auto;padding:0 16px 120px}
+.progress{height:6px;border-radius:6px;background:var(--card2);overflow:hidden}
+.progress span{display:block;height:100%;background:var(--amber);transition:width .3s}
+.q{padding:14px;border-radius:var(--r);background:var(--card);border:1px solid var(--line)}
+.q.crit{border-left:4px solid var(--red)}
+.q p{margin:0 0 10px;font-weight:600}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.seg button{min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--bg2);font-weight:700}
+.seg button.sel[data-v="si"]{background:var(--green);color:#04210f;border-color:var(--green)}
+.seg button.sel[data-v="no"]{background:var(--red);color:#fff;border-color:var(--red)}
+.seg button.sel[data-v="na"]{background:var(--card2);border-color:var(--muted)}
+.toggle{display:flex;align-items:center;gap:12px;padding:14px;border-radius:12px;background:var(--card);border:1px solid var(--line);width:100%;text-align:left}
+.toggle .box{width:26px;height:26px;border-radius:8px;border:2px solid var(--dim);display:grid;place-items:center;flex:none}
+.toggle.on{border-color:var(--green)} .toggle.on .box{background:var(--green);border-color:var(--green);color:#04210f}
+.sig{width:100%;height:150px;border-radius:12px;border:1px dashed var(--dim);background:#fff;touch-action:none;display:block}
+.sticky-foot{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--bg) 30%)}
+.sticky-foot .inner2{max-width:448px;margin:0 auto;display:flex;gap:10px}
+
+/* Chat */
+.chat-head{display:flex;align-items:center;gap:12px}
+.avatar{width:44px;height:44px;border-radius:12px;background:var(--amber);color:var(--amber-ink);display:grid;place-items:center;flex:none}
+.msgs{display:flex;flex-direction:column;gap:12px;margin-top:14px;min-height:40vh}
+.msg{max-width:88%;padding:12px 14px;border-radius:16px;font-size:15px}
+.msg.user{align-self:flex-end;background:var(--amber);color:var(--amber-ink);border-bottom-right-radius:4px;font-weight:600}
+.msg.bot{align-self:flex-start;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg.bot ol,.msg.bot ul{margin:8px 0;padding-left:20px}
+.msg.bot li{margin:4px 0}
+.msg .src{margin-top:10px;font-size:12px;color:var(--muted);font-family:var(--mono)}
+.msg .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.msg .acts button{font-size:13px;padding:7px 10px;border-radius:9px;border:1px solid var(--line);background:var(--card2);font-weight:600}
+.day{align-self:center;font-size:12px;color:var(--dim);font-family:var(--mono)}
+.typing span{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--muted);margin:0 2px;animation:bl 1s infinite}
+.typing span:nth-child(2){animation-delay:.15s}.typing span:nth-child(3){animation-delay:.3s}
+@keyframes bl{50%{opacity:.25;transform:translateY(-3px)}}
+.composer{position:fixed;left:0;right:0;bottom:calc(var(--nav) + env(safe-area-inset-bottom));z-index:25;padding:10px 16px;background:linear-gradient(transparent,var(--bg) 25%)}
+.composer .inner2{max-width:448px;margin:0 auto}
+.composer form{display:flex;gap:8px}
+.composer input{flex:1}
+.suggest{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none}
+.suggest::-webkit-scrollbar{display:none}
+.suggest button{flex:none}
+#view-chat{padding-bottom:140px}
+.mic.rec{background:var(--red);border-color:var(--red)}
+
+/* Nav */
+nav.bottom{position:fixed;left:0;right:0;bottom:0;z-index:30;padding-bottom:env(safe-area-inset-bottom);background:rgba(17,21,26,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line)}
+nav.bottom .inner2{max-width:480px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);height:var(--nav)}
+nav.bottom a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--dim);text-decoration:none;font-size:12px;font-weight:700;position:relative}
+nav.bottom a.active{color:var(--amber)}
+nav.bottom a.active::before{content:"";position:absolute;top:0;width:32px;height:3px;border-radius:0 0 3px 3px;background:var(--amber)}
+.badge{position:absolute;top:10px;left:calc(50% + 6px);min-width:16px;height:16px;border-radius:8px;background:var(--red);color:#fff;font-size:10px;display:grid;place-items:center;padding:0 4px}
+
+/* Timer */
+.timer{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--nav) + 12px + env(safe-area-inset-bottom));z-index:28;width:calc(100% - 32px);max-width:448px;display:none;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:#11251a;border:1px solid #1d5a35;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.timer.show{display:flex}
+.timer.warn{background:#2e2205;border-color:#5c4507}
+.timer.over{background:var(--red-bg);border-color:#6b2226;animation:shake .5s}
+@keyframes shake{25%{transform:translateX(calc(-50% - 4px))}75%{transform:translateX(calc(-50% + 4px))}}
+.timer .t{font-family:var(--mono);font-weight:700;font-size:18px}
+.timer .bar{height:4px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:4px}
+.timer .bar span{display:block;height:100%;background:var(--green)}
+.timer.warn .bar span{background:var(--amber)} .timer.over .bar span{background:var(--red)}
+body.chat-mode .timer{bottom:calc(var(--nav) + 130px + env(safe-area-inset-bottom))}
+
+/* Modal + toast */
+.modal{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center}
+.modal.open{display:flex}
+.sheet{width:100%;max-width:480px;max-height:88vh;overflow:auto;background:var(--bg2);border:1px solid var(--line);border-radius:20px 20px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom));animation:up .25s ease}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+.sheet .grab{width:40px;height:4px;border-radius:4px;background:var(--line);margin:-8px auto 14px}
+.toast{position:fixed;left:50%;top:16px;transform:translateX(-50%) translateY(-120px);z-index:100;background:var(--card2);border:1px solid var(--line);padding:12px 16px;border-radius:12px;font-weight:600;transition:transform .3s;max-width:calc(100% - 32px);box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.hist-item{display:flex;gap:12px;align-items:flex-start;padding:14px;border-radius:var(--r);background:var(--card);border:1px solid var(--line)}
+.hist-item .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;flex:none}
+.empty{text-align:center;padding:40px 16px;color:var(--muted)}
+.qrgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.qrcard{background:#fff;color:#111;border-radius:12px;padding:12px;text-align:center}
+.qrcard .q2 img,.qrcard .q2 canvas{margin:0 auto;width:100%!important;height:auto!important}
+.qrcard b{display:block;font-size:12px;margin-top:6px}
+.qrcard span{font-family:var(--mono);font-size:10px}
+.loto-step{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
+.loto-step .n{width:30px;height:30px;border-radius:50%;background:var(--amber);color:var(--amber-ink);font-weight:800;display:grid;place-items:center;flex:none}
+.sos{background:var(--red);color:#fff;border:0}
+@media print{
+  body *{visibility:hidden}
+  #printArea,#printArea *{visibility:visible}
+  #printArea{position:absolute;inset:0;padding:20px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5l-8-3z"/><path d="m9 12 2 2 4-4"/></svg></div>
+      <span>SafeScan<b>AI</b></span>
+    </div>
+    <div class="row">
+      <button class="iconbtn sos" id="sosBtn" title="Parada de emergencia" aria-label="Parada de emergencia"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="10"/></svg></button>
+      <button class="iconbtn" id="qrLabelsBtn" title="Etiquetas QR" aria-label="Etiquetas QR"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg></button>
+    </div>
+  </header>
+
+  <main>
+    <!-- SCAN -->
+    <section class="view" id="view-scan">
+      <div class="row between" style="margin-bottom:12px">
+        <div>
+          <h1>Escáner de activos</h1>
+          <div class="muted">Alinea el QR dentro del marco</div>
+        </div>
+      </div>
+      <div class="scanner" id="scanner">
+        <video id="video" playsinline muted></video>
+        <div class="frame"><i></i><i></i><i></i><i></i></div>
+        <div class="laser"></div>
+        <div class="placeholder">
+          <div>
+            <svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.6"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
+            <p style="margin:10px 0 14px">Activa la cámara para escanear el código QR o la etiqueta del activo.</p>
+            <button class="btn sm" id="camBtn" style="margin:0 auto">Activar cámara</button>
+          </div>
+        </div>
+      </div>
+      <div class="row between" style="margin:12px 2px 16px">
+        <span class="status"><span class="dot" id="scanDot"></span><span id="scanStatus">Escáner inactivo</span></span>
+        <div class="row">
+          <button class="btn ghost sm" id="torchBtn" style="display:none">Linterna</button>
+          <label class="btn ghost sm" style="cursor:pointer">Subir foto<input type="file" accept="image/*" id="qrFile" hidden></label>
+          <button class="btn ghost sm" id="stopCamBtn" style="display:none">Detener</button>
+        </div>
+      </div>
+      <p class="muted small" style="margin:0 0 16px">Coloca el código QR o la etiqueta del activo dentro del marco. La detección es automática.</p>
+
+      <form class="card" id="manualForm">
+        <label class="lbl" for="manualId">Ingresar ID manualmente</label>
+        <div class="row">
+          <input class="field mono" id="manualId" list="assetIds" placeholder="Ej. D25133K-A14" autocomplete="off" style="text-transform:uppercase">
+          <datalist id="assetIds"></datalist>
+          <button class="btn sm" type="submit" style="min-height:50px">Buscar</button>
+        </div>
+      </form>
+
+      <div style="margin-top:20px">
+        <div class="row between" style="margin-bottom:10px"><h2>Activos en obra</h2><span class="muted small" id="assetCount"></span></div>
+        <div class="assetlist" id="assetList"></div>
+      </div>
+    </section>
+
+    <!-- ASSET -->
+    <section class="view" id="view-asset"></section>
+
+    <!-- CHAT -->
+    <section class="view" id="view-chat">
+      <div class="chat-head">
+        <div class="avatar"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5l-8-3z"/><path d="M9 11h.01M15 11h.01M9 15c1.5 1 4.5 1 6 0"/></svg></div>
+        <div style="flex:1">
+          <div style="font-weight:800;font-size:18px">IA de Seguridad</div>
+          <div class="status small" style="font-weight:600"><span class="dot live"></span><span class="muted">En línea · ISO 45001</span></div>
+        </div>
+        <button class="btn ghost sm" id="clearChat">Nueva</button>
+      </div>
+      <div class="chip" id="chatContext" style="margin-top:12px"></div>
+      <div class="msgs" id="msgs"></div>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="view" id="view-history">
+      <h1>Historial</h1>
+      <div class="muted" style="margin-bottom:14px">Checklists, incidentes y sesiones de uso registradas en este dispositivo.</div>
+      <div class="row" style="margin-bottom:14px;gap:8px">
+        <select class="field" id="histFilter" style="min-height:44px">
+          <option value="all">Todo</option>
+          <option value="checklist">Checklists</option>
+          <option value="incident">Incidentes</option>
+          <option value="usage">Sesiones de uso</option>
+        </select>
+        <button class="btn ghost sm" id="exportCsv" style="min-height:44px">CSV</button>
+        <button class="btn ghost sm" id="clearHist" style="min-height:44px">Borrar</button>
+      </div>
+      <div class="stack" id="histList"></div>
+    </section>
+  </main>
+</div>
+
+<!-- Timer -->
+<div class="timer" id="timer">
+  <div style="flex:1">
+    <div class="row between"><span class="small" id="timerLabel" style="font-weight:700">En uso</span><span class="t" id="timerTime">00:00</span></div>
+    <div class="bar"><span id="timerBar" style="width:0"></span></div>
+  </div>
+  <button class="btn ghost sm" id="timerPause" style="min-height:38px">Pausa</button>
+  <button class="btn red sm" id="timerStop" style="min-height:38px">Fin</button>
+</div>
+
+<!-- Chat composer -->
+<div class="composer" id="composer" style="display:none">
+  <div class="inner2">
+    <div class="suggest" id="suggest"></div>
+    <form id="chatForm">
+      <input class="field" id="chatInput" placeholder="Pregunta sobre seguridad…" autocomplete="off">
+      <button type="button" class="iconbtn mic" id="micBtn" style="width:50px;height:50px" aria-label="Dictar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5"/></svg></button>
+      <button class="btn" style="width:50px;min-height:50px;padding:0" aria-label="Enviar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+    </form>
+  </div>
+</div>
+
+<nav class="bottom">
+  <div class="inner2">
+    <a href="#scan" data-nav="scan"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg>Escanear</a>
+    <a href="#asset" data-nav="asset"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>Activo</a>
+    <a href="#chat" data-nav="chat"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>IA Seguridad</a>
+    <a href="#history" data-nav="history"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2"/></svg>Historial<span class="badge" id="histBadge" style="display:none"></span></a>
+  </div>
+</nav>
+
+<!-- Checklist overlay -->
+<div class="overlay" id="checklist"><div class="inner" id="checklistInner"></div></div>
+
+<!-- Modal -->
+<div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== DATOS ===================== */
+const ASSETS = [
+  {
+    id:"D25133K-A14", name:"Martillo rotativo Dewalt", model:"D25133K", category:"Herramienta eléctrica", cls:"Clase B",
+    icon:"drill", specs:["SDS-Plus","800W","3.0J"], riskBase:72, calibrated:"2026-02-15", calibMonths:12, lastInspection:"2026-05-12",
+    warningTitle:"Advertencia de alto riesgo",
+    warning:"Riesgo elevado de vibración severa y proyección de partículas. El uso prolongado puede causar síndrome de vibración mano-brazo (HAVS). Asegura el área y verifica que no haya personas en un radio de 3 m antes de operar.",
+    maxUse:20, radius:3,
+    ppe:[["Gafas de seguridad",true,"eye"],["Guantes antivibración",true,"glove"],["Botas con puntera de acero",true,"boot"],["Protección auditiva",true,"ear"],["Casco",false,"helmet"]],
+    checks:[
+      ["Carcasa sin grietas ni golpes visibles",true],["Cable y clavija sin cortes, empalmes ni cables expuestos",true],
+      ["Broca/cincel SDS-Plus correctamente asegurado",true],["Empuñadura lateral instalada y apretada",true],
+      ["Embrague de seguridad funciona (prueba en vacío)",true],["Rejillas de ventilación limpias",false],
+      ["Área despejada, sin personas en 3 m",true],["Sin tuberías/cables eléctricos ocultos (detector usado)",true]
+    ],
+    stop:["Suelta el gatillo de inmediato.","Pulsa el botón rojo de seta (parada de emergencia) en la empuñadura derecha.","Retrocede 1 m y grita «PARANDO» para que las personas a menos de 3 m se alejen.","Bloqueo y etiquetado (LOTO): desconecta la clavija, coloca tu candado/etiqueta personal y anótalo en el registro.","Informa al supervisor de turno en menos de 5 min. Si hay lesión, activa primeros auxilios."],
+    sop:"SOP-114", sopDate:"2026-03-02", location:"Nivel 2 · Zona B · Almacén de herramientas",
+    manual:[["Uso previsto","Perforación en hormigón y mampostería y cincelado ligero. No usar en metal sin adaptador."],["Vibración","Valor declarado 13.5 m/s². Límite diario recomendado: 2 h efectivas en bloques de máximo 20 min con pausas de 10 min."],["Mantenimiento","Limpiar el portabrocas tras cada uso y engrasar el vástago SDS. Revisión de escobillas cada 150 h."]],
+    inspections:[["2026-05-12","Inspección trimestral","Aprobada","J. Martínez"],["2026-02-15","Calibración anual + eléctrica","Aprobada","Servicio técnico Dewalt"],["2025-11-20","Inspección trimestral","Observaciones: cable con desgaste, reemplazado","J. Martínez"]]
+  },
+  {
+    id:"GA4530-M07", name:"Esmeriladora angular Makita", model:"GA4530", category:"Herramienta eléctrica", cls:"Clase B",
+    icon:"grinder", specs:["115 mm","720W","11 000 rpm"], riskBase:68, calibrated:"2025-09-10", calibMonths:12, lastInspection:"2026-04-03",
+    warningTitle:"Advertencia de alto riesgo",
+    warning:"Riesgo de rotura del disco, retroceso (kickback) y proyección de chispas incandescentes. Nunca retires la guarda. Verifica que el disco sea apto para 11 000 rpm y que no haya material inflamable en un radio de 10 m.",
+    maxUse:30, radius:10,
+    ppe:[["Careta facial + gafas",true,"eye"],["Guantes de cuero",true,"glove"],["Protección auditiva",true,"ear"],["Mandil de cuero",true,"vest"],["Botas con puntera de acero",true,"boot"],["Mascarilla FFP2",false,"mask"]],
+    checks:[
+      ["Guarda de protección instalada y orientada hacia el operador",true],["Disco sin grietas, dentro de fecha de caducidad y apto para 11 000 rpm",true],
+      ["Brida y tuerca apretadas con la llave correcta",true],["Mango lateral instalado",true],["Cable y clavija en buen estado",true],
+      ["Interruptor con retorno (no queda bloqueado)",true],["Sin material inflamable en 10 m / extintor cercano",true],["Permiso de trabajo en caliente vigente",true]
+    ],
+    stop:["Suelta el interruptor y mantén la herramienta firmemente sujeta hasta que el disco se detenga por completo.","No la sueltes ni la apoyes mientras el disco gira.","Desconecta la clavija y coloca tu etiqueta LOTO.","Revisa si hay focos de chispas o humo; usa el extintor si es necesario.","Informa al supervisor de turno en menos de 5 min."],
+    sop:"SOP-087", sopDate:"2026-01-18", location:"Nivel 1 · Taller de soldadura",
+    manual:[["Uso previsto","Corte y desbaste de metal y piedra con discos de 115 mm."],["Discos","Solo discos con velocidad ≥ 11 000 rpm. Desecha discos caídos o húmedos."],["Retroceso","Nunca uses discos de sierra de madera. Posición del cuerpo fuera de la línea del disco."]],
+    inspections:[["2026-04-03","Inspección trimestral","Aprobada","L. Gómez"],["2025-09-10","Calibración anual","Aprobada","Taller interno"]]
+  },
+  {
+    id:"8FGU25-T02", name:"Montacargas Toyota", model:"8FGU25", category:"Equipo móvil", cls:"Clase A",
+    icon:"forklift", specs:["2.5 t","GLP","Mástil 4.7 m"], riskBase:80, calibrated:"2026-06-01", calibMonths:12, lastInspection:"2026-10-28",
+    warningTitle:"Advertencia de riesgo crítico",
+    warning:"Riesgo de vuelco, atropello y caída de carga. Solo operadores certificados. Usa siempre el cinturón de seguridad, respeta la capacidad de la placa y circula a máx. 10 km/h con la carga baja.",
+    maxUse:120, radius:5,
+    ppe:[["Chaleco de alta visibilidad",true,"vest"],["Botas con puntera de acero",true,"boot"],["Casco",true,"helmet"],["Guantes",false,"glove"]],
+    checks:[
+      ["Licencia/certificación de operador vigente",true],["Cinturón de seguridad funciona",true],["Frenos de servicio y estacionamiento OK",true],
+      ["Claxon, luces y alarma de reversa funcionan",true],["Horquillas sin fisuras ni deformaciones",true],["Sin fugas de hidráulico, GLP o aceite",true],
+      ["Neumáticos en buen estado",true],["Nivel de combustible / GLP suficiente",false],["Placa de capacidad legible",false]
+    ],
+    stop:["Suelta el acelerador y aplica el freno de servicio.","Baja las horquillas al suelo.","Coloca la palanca en neutro, aplica freno de mano y apaga el motor.","Si hay vuelco: NO saltes. Sujeta el volante, apoya los pies e inclínate al lado contrario.","Cierra la válvula de GLP, retira la llave y aplica LOTO. Informa al supervisor."],
+    sop:"SOP-201", sopDate:"2026-05-20", location:"Patio de carga · Andén 3",
+    manual:[["Capacidad","2 500 kg a 500 mm del centro de carga. La capacidad baja con la altura de elevación."],["Estabilidad","Nunca gires con la carga elevada. En rampas, carga siempre cuesta arriba."],["GLP","Cambio de cilindro solo en zona ventilada, con motor apagado y guantes."]],
+    inspections:[["2026-10-28","Inspección mensual","Aprobada","R. Sánchez"],["2026-09-25","Inspección mensual","Observaciones: alarma de reversa reparada","R. Sánchez"],["2026-06-01","Servicio anual","Aprobada","Toyota Material Handling"]]
+  },
+  {
+    id:"PM210-L11", name:"Soldadora MIG Lincoln", model:"POWER MIG 210 MP", category:"Equipo de soldadura", cls:"Clase B",
+    icon:"weld", specs:["210 A","120/230V","MIG/TIG/Electrodo"], riskBase:65, calibrated:"2026-03-12", calibMonths:12, lastInspection:"2026-08-19",
+    warningTitle:"Advertencia de alto riesgo",
+    warning:"Riesgo de descarga eléctrica, radiación UV, humos metálicos y quemaduras. Trabaja en zona ventilada o con extracción localizada y coloca mamparas para proteger a terceros de la radiación del arco.",
+    maxUse:60, radius:5,
+    ppe:[["Careta de soldar (sombra 10-13)",true,"eye"],["Guantes de soldador",true,"glove"],["Chaqueta ignífuga",true,"vest"],["Botas de seguridad",true,"boot"],["Respirador para humos",true,"mask"]],
+    checks:[
+      ["Cable de masa y pinza en buen estado y bien conectados",true],["Antorcha y boquilla sin daños",true],["Botella de gas asegurada con cadena",true],
+      ["Regulador y mangueras sin fugas",true],["Extracción de humos funcionando",true],["Mamparas colocadas",false],["Extintor a menos de 10 m",true]
+    ],
+    stop:["Suelta el gatillo de la antorcha.","Apaga el interruptor principal de la soldadora.","Cierra la válvula de la botella de gas.","Desconecta de la red y aplica LOTO.","Si hay descarga eléctrica: no toques a la persona hasta cortar la corriente. Llama a emergencias."],
+    sop:"SOP-133", sopDate:"2026-02-10", location:"Nivel 1 · Taller de soldadura · Cabina 2",
+    manual:[["Ciclo de trabajo","100 A al 40 % (230 V). Respeta el ciclo para evitar sobrecalentamiento."],["Gas","Mezcla 75/25 Ar/CO₂ para acero. Caudal 15–20 l/min."],["Humos","Exposición a manganeso y cromo: extracción localizada obligatoria."]],
+    inspections:[["2026-08-19","Inspección trimestral","Aprobada","L. Gómez"],["2026-03-12","Calibración anual","Aprobada","Lincoln Service"]]
+  }
+];
+
+const ICONS = {
+  drill:'<path d="M3 10h10l3-3h4v8h-4l-3-3H3z"/><path d="M8 12v7h3"/>',
+  grinder:'<circle cx="8" cy="12" r="5"/><path d="M13 12h8M8 7v10"/>',
+  forklift:'<path d="M4 18V8h6l3 5v5M13 18h-9"/><circle cx="6" cy="18" r="2"/><circle cx="12" cy="18" r="2"/><path d="M17 4v14h4"/>',
+  weld:'<path d="M4 20l7-7M11 13l3-3 4 4-3 3zM16 4l1 2M20 8l-2 1M19 3l-1 3"/>',
+  eye:'<path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  glove:'<path d="M7 11V5a1.5 1.5 0 0 1 3 0v5M10 10V4a1.5 1.5 0 0 1 3 0v6M13 10V5a1.5 1.5 0 0 1 3 0v6M16 11V8a1.5 1.5 0 0 1 3 0v6a7 7 0 0 1-7 7h-1a6 6 0 0 1-5-3l-2-4a1.5 1.5 0 0 1 2.5-1.6L7 14"/>',
+  boot:'<path d="M6 3h6v8l6 3a3 3 0 0 1 2 3v2H4V3z"/><path d="M4 16h16"/>',
+  ear:'<path d="M6 9a6 6 0 0 1 12 0c0 4-4 5-4 9a3 3 0 0 1-6 0"/><path d="M10 9a2 2 0 0 1 4 0"/>',
+  helmet:'<path d="M3 17h18M5 17v-3a7 7 0 0 1 14 0v3"/><path d="M12 7V4M9 8l-1-3M15 8l1-3"/>',
+  vest:'<path d="M8 3l4 4 4-4 4 3v15H4V6z"/><path d="M12 7v14M4 13h16"/>',
+  mask:'<path d="M4 9c3-2 13-2 16 0v3c0 4-4 7-8 7s-8-3-8-7z"/><path d="M8 13h8"/>',
+  shield:'<path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5l-8-3z"/>',
+  alert:'<path d="M12 3 2 21h20L12 3z"/><path d="M12 10v5M12 18v.01"/>',
+  check:'<path d="m5 12 5 5 9-10"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  doc:'<path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4M9 13h6M9 17h6"/>',
+  list:'<path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/>',
+  pin:'<path d="M12 22s7-7 7-12a7 7 0 0 0-14 0c0 5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/>'
+};
+const svg = (n, s=20, w=2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]||ICONS.shield}</svg>`;
+
+/* ===================== ESTADO ===================== */
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem("ss_"+k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem("ss_"+k, JSON.stringify(v)); }catch(e){} }
+};
+const state = {
+  assetId: LS.get("asset", ASSETS[0].id),
+  history: LS.get("history", []),
+  session: LS.get("session", null)
+};
+const asset = () => ASSETS.find(a => a.id === state.assetId) || ASSETS[0];
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const today = () => new Date();
+const fmtDate = d => new Date(d).toLocaleDateString("es-ES",{day:"2-digit",month:"short",year:"numeric"});
+const fmtDT = d => new Date(d).toLocaleString("es-ES",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"});
+const daysBetween = (a,b) => Math.floor((new Date(b)-new Date(a))/864e5);
+
+function saveHistory(){ LS.set("history", state.history); updateBadge(); }
+function addHistory(item){ state.history.unshift({id:Date.now()+"", date:new Date().toISOString(), ...item}); saveHistory(); }
+
+function toast(msg, ms=2600){
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove("show"), ms);
+}
+function openModal(html){
+  $("#sheet").innerHTML = '<div class="grab"></div>' + html;
+  $("#modal").classList.add("open");
+}
+function closeModal(){ $("#modal").classList.remove("open"); }
+$("#modal").addEventListener("click", e => { if(e.target.id==="modal" || e.target.closest("[data-close]")) closeModal(); });
+
+/* ===================== RIESGO ===================== */
+function calibStatus(a){
+  const due = new Date(a.calibrated); due.setMonth(due.getMonth()+a.calibMonths);
+  const left = daysBetween(today(), due);
+  return {due, left, expired:left<0, soon:left>=0 && left<=30};
+}
+function lastChecklist(a){
+  return state.history.find(h => h.type==="checklist" && h.assetId===a.id && daysBetween(h.date, today())===0 && new Date(h.date).toDateString()===today().toDateString());
+}
+function riskScore(a){
+  let s = a.riskBase, factors = [];
+  const c = calibStatus(a);
+  if(c.expired){ s += 15; factors.push(["Calibración vencida hace "+(-c.left)+" días", 15]); }
+  else if(c.soon){ s += 5; factors.push(["Calibración vence en "+c.left+" días", 5]); }
+  const di = daysBetween(a.lastInspection, today());
+  if(di > 90){ s += 8; factors.push(["Última inspección hace "+di+" días", 8]); }
+  const openInc = state.history.filter(h => h.type==="incident" && h.assetId===a.id && daysBetween(h.date,today())<=30).length;
+  if(openInc){ s += 6*openInc; factors.push([openInc+" incidente(s) en 30 días", 6*openInc]); }
+  const lc = lastChecklist(a);
+  if(lc && lc.result==="apto"){ s -= 25; factors.push(["Checklist de hoy aprobado", -25]); }
+  if(lc && lc.result==="no_apto"){ s += 20; factors.push(["Checklist de hoy NO apto", 20]); }
+  s = Math.max(5, Math.min(100, s));
+  const level = s>=80?["Crítico","var(--red)"]: s>=60?["Alto","var(--orange)"]: s>=35?["Medio","var(--amber)"]:["Bajo","var(--green)"];
+  return {s, level, factors};
+}
+
+/* ===================== ROUTER ===================== */
+const views = ["scan","asset","chat","history"];
+function route(){
+  let v = location.hash.replace("#","") || "scan";
+  if(!views.includes(v)) v = "scan";
+  document.querySelectorAll(".view").forEach(el => el.classList.toggle("active", el.id==="view-"+v));
+  document.querySelectorAll("nav.bottom a").forEach(a => a.classList.toggle("active", a.dataset.nav===v));
+  $("#composer").style.display = v==="chat" ? "block" : "none";
+  document.body.classList.toggle("chat-mode", v==="chat");
+  if(v!=="scan") stopCamera();
+  if(v==="asset") renderAsset();
+  if(v==="history") renderHistory();
+  if(v==="chat"){ renderChatContext(); if(!chatStarted) startChat(); setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),50); }
+  if(v==="scan") renderAssetList();
+  window.scrollTo({top:0});
+  if(v==="chat") setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),60);
+}
+window.addEventListener("hashchange", route);
+function go(v){ if(location.hash==="#"+v) route(); else location.hash = v; }
+
+function selectAsset(id, fromScan){
+  const a = ASSETS.find(x => x.id.toUpperCase() === String(id).trim().toUpperCase());
+  if(!a){ toast("No se encontró el activo «"+id+"»"); return false; }
+  state.assetId = a.id; LS.set("asset", a.id);
+  chatStarted = false;
+  if(fromScan){ navigator.vibrate && navigator.vibrate(80); beep(880,.08); toast("Activo detectado: "+a.name); }
+  go("asset");
+  return true;
+}
+
+/* ===================== ESCÁNER ===================== */
+let stream = null, scanLoop = null, detector = null;
+const video = $("#video");
+const work = document.createElement("canvas");
+const wctx = work.getContext("2d", {willReadFrequently:true});
+
+function parseCode(text){
+  if(!text) return null;
+  let t = text.trim();
+  try{ const u = new URL(t); t = u.searchParams.get("id") || u.hash.replace("#","") || u.pathname.split("/").pop(); }catch(e){}
+  t = t.replace(/^SAFESCAN:/i,"");
+  return t;
+}
+function handleCode(raw){
+  const id = parseCode(raw);
+  if(id && ASSETS.some(a => a.id.toUpperCase()===id.toUpperCase())){ stopCamera(); selectAsset(id, true); return true; }
+  $("#scanStatus").textContent = "Código no reconocido: " + raw.slice(0,24);
+  return false;
+}
+async function startCamera(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ toast("Tu navegador no permite usar la cámara. Usa «Subir foto» o el ID manual."); return; }
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}, width:{ideal:1280}}, audio:false});
+  }catch(e){
+    toast(e.name==="NotAllowedError" ? "Permiso de cámara denegado." : "No se pudo abrir la cámara (requiere https o localhost).", 3800);
+    return;
+  }
+  video.srcObject = stream; await video.play();
+  $("#scanner").classList.add("on");
+  $("#scanDot").classList.add("live"); $("#scanStatus").textContent = "Escáner activo";
+  $("#stopCamBtn").style.display = "";
+  const track = stream.getVideoTracks()[0];
+  const caps = track.getCapabilities ? track.getCapabilities() : {};
+  $("#torchBtn").style.display = caps.torch ? "" : "none";
+  if("BarcodeDetector" in window){ try{ detector = new BarcodeDetector({formats:["qr_code","code_128","code_39","data_matrix"]}); }catch(e){ detector=null; } }
+  tick();
+}
+async function tick(){
+  if(!stream) return;
+  if(video.readyState >= 2){
+    try{
+      if(detector){
+        const codes = await detector.detect(video);
+        if(codes.length && handleCode(codes[0].rawValue)) return;
+      } else if(window.jsQR){
+        const w = 480, h = Math.round(video.videoHeight/video.videoWidth*w) || 480;
+        work.width=w; work.height=h; wctx.drawImage(video,0,0,w,h);
+        const img = wctx.getImageData(0,0,w,h);
+        const code = jsQR(img.data, w, h, {inversionAttempts:"dontInvert"});
+        if(code && handleCode(code.data)) return;
+      }
+    }catch(e){}
+  }
+  scanLoop = setTimeout(()=>requestAnimationFrame(tick), 180);
+}
+function stopCamera(){
+  clearTimeout(scanLoop);
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  $("#scanner").classList.remove("on"); $("#scanDot").classList.remove("live");
+  $("#scanStatus").textContent = "Escáner inactivo";
+  $("#stopCamBtn").style.display = "none"; $("#torchBtn").style.display = "none";
+}
+let torchOn = false;
+$("#torchBtn").onclick = async () => {
+  if(!stream) return; torchOn = !torchOn;
+  try{ await stream.getVideoTracks()[0].applyConstraints({advanced:[{torch:torchOn}]}); }catch(e){ toast("Linterna no disponible"); }
+};
+$("#camBtn").onclick = startCamera;
+$("#stopCamBtn").onclick = stopCamera;
+$("#qrFile").onchange = e => {
+  const f = e.target.files[0]; if(!f) return;
+  const img = new Image();
+  img.onload = async () => {
+    const max = 1000, sc = Math.min(1, max/Math.max(img.width,img.height));
+    work.width = img.width*sc; work.height = img.height*sc;
+    wctx.drawImage(img,0,0,work.width,work.height);
+    let found = null;
+    if("BarcodeDetector" in window){ try{ const c = await new BarcodeDetector({formats:["qr_code"]}).detect(work); if(c.length) found = c[0].rawValue; }catch(e){} }
+    if(!found && window.jsQR){ const d = wctx.getImageData(0,0,work.width,work.height); const c = jsQR(d.data,work.width,work.height); if(c) found = c.data; }
+    URL.revokeObjectURL(img.src);
+    if(found) handleCode(found); else toast("No se detectó ningún código QR en la imagen.");
+  };
+  img.src = URL.createObjectURL(f);
+  e.target.value = "";
+};
+$("#manualForm").onsubmit = e => { e.preventDefault(); const v = $("#manualId").value; if(v.trim()) selectAsset(v); };
+
+function renderAssetList(){
+  $("#assetIds").innerHTML = ASSETS.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join("");
+  $("#assetCount").textContent = ASSETS.length + " registrados";
+  $("#assetList").innerHTML = ASSETS.map(a => {
+    const r = riskScore(a), lc = lastChecklist(a);
+    return `<button data-id="${a.id}">
+      <span class="ic" style="color:${r.level[1]}">${svg(a.icon,22)}</span>
+      <span style="flex:1;min-width:0"><b style="display:block">${esc(a.name)}</b><span class="tag">#${a.id}</span></span>
+      ${lc ? `<span class="pill ${lc.result==='apto'?'ok':'bad'}">${lc.result==='apto'?'Apto':'No apto'}</span>` : `<span class="pill" style="background:transparent;color:${r.level[1]}">${r.level[0]}</span>`}
+    </button>`;
+  }).join("");
+  $("#assetList").querySelectorAll("button").forEach(b => b.onclick = () => selectAsset(b.dataset.id));
+}
+
+/* ===================== FICHA DEL ACTIVO ===================== */
+function renderAsset(){
+  const a = asset(), r = riskScore(a), c = calibStatus(a), lc = lastChecklist(a);
+  const req = a.ppe.filter(p=>p[1]).length;
+  const C = 2*Math.PI*40, off = C*(1-r.s/100);
+  const calDate = new Date(a.calibrated);
+  const calLabel = String(calDate.getMonth()+1).padStart(2,"0")+"/"+String(calDate.getFullYear()).slice(2);
+  $("#view-asset").innerHTML = `
+  <div class="card hero">
+    <div class="tag">ACTIVO · #${a.id}</div>
+    <div class="muted small" style="margin-top:2px">${esc(a.category)} · ${esc(a.cls)}</div>
+    <div class="row" style="align-items:flex-start;margin-top:10px">
+      <div style="flex:1;min-width:0">
+        <h1>${esc(a.name)}</h1>
+        <div class="muted mono small">${esc(a.model)}</div>
+      </div>
+      <div class="gauge" title="Índice de riesgo">
+        <svg width="96" height="96"><circle cx="48" cy="48" r="40" stroke="var(--card2)" stroke-width="9" fill="none"/>
+        <circle cx="48" cy="48" r="40" stroke="${r.level[1]}" stroke-width="9" fill="none" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${off}" style="transition:stroke-dashoffset .8s"/></svg>
+        <div class="val" style="color:${r.level[1]}"><div>${r.s}<small>${r.level[0]}</small></div></div>
+      </div>
+    </div>
+    <div class="chips" style="margin-top:12px">
+      ${a.specs.map(s=>`<span class="chip">${esc(s)}</span>`).join("")}
+      <span class="chip" style="${c.expired?'border-color:#6b2226;color:#ff8a8a':c.soon?'color:var(--amber)':''}">${c.expired?'Calibración vencida':'Calibrado '+calLabel}</span>
+    </div>
+    <button class="chip" id="riskWhy" style="margin-top:10px;background:transparent">¿Por qué este índice de riesgo?</button>
+  </div>
+
+  <div class="stack" style="margin-top:12px">
+    ${lc ? (lc.result==="apto"
+      ? `<div class="alert-inline ok">${svg("check")}<div><b>Apto para uso</b><br>Checklist aprobado hoy a las ${new Date(lc.date).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})} por ${esc(lc.operator)}.</div></div>`
+      : `<div class="alert-inline bad">${svg("x")}<div><b>FUERA DE SERVICIO</b><br>El checklist de hoy falló. No operar hasta su reparación y reinspección.</div></div>`) : ""}
+    ${c.expired ? `<div class="alert-inline warn">${svg("alert")}<div><b>Calibración vencida</b><br>Venció el ${fmtDate(c.due)}. Solicita la recalibración antes de su uso.</div></div>` : ""}
+
+    <div class="warn-card">
+      <h3>${svg("alert",18,2.4)} ${esc(a.warningTitle)}</h3>
+      <div style="color:#f3c4c4">${esc(a.warning)}</div>
+      <div class="limit">${svg("clock",22)}<div><div class="small muted">Uso continuo máximo</div><b>${a.maxUse} minutos</b></div></div>
+    </div>
+
+    <div class="card">
+      <div class="row between" style="margin-bottom:6px"><h2>EPP requerido</h2><span class="pill warn">Obligatorio · ${req}</span></div>
+      ${a.ppe.map(p=>`<div class="ppe"><span class="ic">${svg(p[2])}</span><span style="flex:1;font-weight:600">${esc(p[0])}</span><span class="pill ${p[1]?'bad':'opt'}">${p[1]?'Obligatorio':'Opcional'}</span></div>`).join("")}
+    </div>
+
+    <div class="docs">
+      <button class="doc" id="docManual">${svg("doc",22)}<b>Manual de operación</b><span class="muted small">Resumen · ${a.manual.length} secciones</span></button>
+      <button class="doc" id="docInsp">${svg("list",22)}<b>Historial de inspección</b><span class="muted small">Última: ${fmtDate(a.lastInspection)}</span></button>
+    </div>
+    <div class="card row" style="padding:12px 16px">${svg("pin",20)}<span class="small" style="flex:1">${esc(a.location)}</span></div>
+
+    <button class="btn" id="startChecklist">${svg("check",20,2.6)} ${lc?'Repetir checklist previo al uso':'Iniciar checklist previo al uso'}</button>
+    <div class="row">
+      <button class="btn ghost" id="askAI">Preguntar a la IA</button>
+      <button class="btn ghost" id="reportInc">Reportar incidente</button>
+    </div>
+  </div>`;
+  $("#startChecklist").onclick = () => openChecklist(a);
+  $("#askAI").onclick = () => go("chat");
+  $("#reportInc").onclick = () => incidentForm(a);
+  $("#docManual").onclick = () => openModal(`<h2 style="margin-bottom:6px">Manual de operación</h2><h1 style="font-size:20px">${esc(a.name)} ${esc(a.model)}</h1>${a.manual.map(m=>`<div class="card" style="margin-top:10px"><b>${esc(m[0])}</b><div class="muted" style="margin-top:4px">${esc(m[1])}</div></div>`).join("")}<div class="card" style="margin-top:10px"><b>Parada de emergencia</b><ol style="margin:6px 0 0;padding-left:20px">${a.stop.map(s=>`<li>${esc(s)}</li>`).join("")}</ol></div><button class="btn ghost" data-close style="margin-top:14px">Cerrar</button>`);
+  $("#docInsp").onclick = () => {
+    const local = state.history.filter(h=>h.type==="checklist" && h.assetId===a.id).slice(0,5);
+    openModal(`<h2 style="margin-bottom:6px">Historial de inspección</h2><h1 style="font-size:20px">${esc(a.name)}</h1>
+      ${local.length?`<div class="muted small" style="margin:12px 0 6px">Checklists en este dispositivo</div>`+local.map(h=>`<div class="hist-item" style="margin-top:8px"><div style="flex:1"><b>${fmtDT(h.date)}</b><div class="muted small">${esc(h.operator)}</div></div><span class="pill ${h.result==='apto'?'ok':'bad'}">${h.result==='apto'?'Apto':'No apto'}</span></div>`).join(""):""}
+      <div class="muted small" style="margin:14px 0 6px">Inspecciones oficiales</div>
+      ${a.inspections.map(i=>`<div class="hist-item" style="margin-top:8px"><div style="flex:1"><b>${fmtDate(i[0])} · ${esc(i[1])}</b><div class="muted small">${esc(i[2])} — ${esc(i[3])}</div></div></div>`).join("")}
+      <button class="btn ghost" data-close style="margin-top:14px">Cerrar</button>`);
+  };
+  $("#riskWhy").onclick = () => openModal(`<h2>Índice de riesgo</h2><h1 style="font-size:40px;color:${r.level[1]};margin-top:6px">${r.s} <span style="font-size:18px">${r.level[0]}</span></h1>
+    <div class="hist-item"><div style="flex:1">Riesgo inherente del equipo</div><b class="mono">${a.riskBase}</b></div>
+    ${r.factors.map(f=>`<div class="hist-item" style="margin-top:8px"><div style="flex:1">${esc(f[0])}</div><b class="mono" style="color:${f[1]<0?'var(--green)':'#ff8a8a'}">${f[1]>0?'+':''}${f[1]}</b></div>`).join("")}
+    <p class="muted small">El índice combina el riesgo inherente con el estado de calibración, inspecciones, incidentes recientes y el resultado del checklist del día.</p>
+    <button class="btn ghost" data-close>Cerrar</button>`);
+}
+
+/* ===================== CHECKLIST ===================== */
+let ck = null;
+function openChecklist(a){
+  ck = {a, step:0, ppe:a.ppe.map(()=>false), ans:a.checks.map(()=>null), operator:LS.get("operator",""), notes:"", signed:false};
+  $("#checklist").classList.add("open"); document.body.style.overflow="hidden";
+  renderChecklist();
+}
+function closeChecklist(){ $("#checklist").classList.remove("open"); document.body.style.overflow=""; ck=null; }
+function renderChecklist(){
+  const {a, step} = ck, steps = ["EPP","Inspección","Firma"];
+  let body = "";
+  if(step===0){
+    body = `<h1 style="font-size:22px">¿Llevas puesto tu EPP?</h1><p class="muted">Confirma cada elemento obligatorio antes de continuar.</p>
+    <div class="stack">${a.ppe.map((p,i)=>`<button class="toggle ${ck.ppe[i]?'on':''}" data-i="${i}"><span class="box">${ck.ppe[i]?svg("check",16,3):""}</span><span style="flex:1;font-weight:600">${esc(p[0])}</span><span class="pill ${p[1]?'bad':'opt'}">${p[1]?'Obligatorio':'Opcional'}</span></button>`).join("")}</div>`;
+  } else if(step===1){
+    const done = ck.ans.filter(x=>x).length;
+    body = `<h1 style="font-size:22px">Inspección del equipo</h1><p class="muted">${done}/${a.checks.length} respondidas. Los puntos con borde rojo son críticos: un «No» deja el equipo fuera de servicio.</p>
+    <div class="stack">${a.checks.map((c,i)=>`<div class="q ${c[1]?'crit':''}"><p>${i+1}. ${esc(c[0])}</p><div class="seg" data-i="${i}">
+      ${["si","no","na"].map(v=>`<button data-v="${v}" class="${ck.ans[i]===v?'sel':''}">${v==='si'?'Sí':v==='no'?'No':'N/A'}</button>`).join("")}</div></div>`).join("")}</div>`;
+  } else {
+    const fails = a.checks.filter((c,i)=>ck.ans[i]==="no");
+    const critFail = a.checks.some((c,i)=>c[1] && ck.ans[i]==="no");
+    body = `<h1 style="font-size:22px">Resultado y firma</h1>
+    ${critFail ? `<div class="alert-inline bad">${svg("x")}<div><b>NO APTO PARA USO</b><br>Falla crítica: ${fails.filter(f=>f[1]).map(f=>esc(f[0])).join("; ")}. Aplica bloqueo/etiquetado y reporta.</div></div>`
+      : fails.length ? `<div class="alert-inline warn">${svg("alert")}<div><b>Apto con observaciones</b><br>${fails.map(f=>esc(f[0])).join("; ")}. Se notificará a mantenimiento.</div></div>`
+      : `<div class="alert-inline ok">${svg("check")}<div><b>APTO PARA USO</b><br>Todos los puntos verificados correctamente.</div></div>`}
+    <div class="stack" style="margin-top:14px">
+      <div><label class="lbl" for="opName">Nombre del operador</label><input class="field" id="opName" value="${esc(ck.operator)}" placeholder="Nombre y apellido"></div>
+      <div><label class="lbl" for="opNotes">Observaciones (opcional)</label><textarea class="field" id="opNotes" rows="2" placeholder="Describe cualquier anomalía">${esc(ck.notes)}</textarea></div>
+      <div><div class="row between"><label class="lbl">Firma</label><button class="chip" id="sigClear" style="background:transparent;margin-bottom:6px">Borrar</button></div><canvas class="sig" id="sig"></canvas></div>
+    </div>`;
+  }
+  const canNext = step===0 ? a.ppe.every((p,i)=>!p[1]||ck.ppe[i]) : step===1 ? ck.ans.every(x=>x) : true;
+  $("#checklistInner").innerHTML = `
+    <div class="row between" style="padding:16px 0 10px;position:sticky;top:0;background:var(--bg);z-index:2">
+      <button class="iconbtn" id="ckClose" aria-label="Cerrar">${svg("x")}</button>
+      <div style="text-align:center"><div class="tag">#${a.id}</div><b class="small">Checklist previo al uso</b></div>
+      <span class="mono small muted" style="width:40px;text-align:right">${step+1}/3</span>
+    </div>
+    <div class="progress" style="margin-bottom:6px"><span style="width:${(step+1)/3*100}%"></span></div>
+    <div class="row between small muted" style="margin-bottom:16px">${steps.map((s,i)=>`<span style="${i===step?'color:var(--amber);font-weight:700':''}">${s}</span>`).join("")}</div>
+    ${body}
+    <div class="sticky-foot"><div class="inner2">
+      ${step>0?`<button class="btn ghost" id="ckBack" style="width:auto;padding:0 18px">Atrás</button>`:""}
+      <button class="btn" id="ckNext" ${canNext?"":"disabled"}>${step<2?"Continuar":"Firmar y registrar"}</button>
+    </div></div>`;
+  $("#ckClose").onclick = () => { if(confirm("¿Salir del checklist? Se perderá el progreso.")) closeChecklist(); };
+  if($("#ckBack")) $("#ckBack").onclick = () => { saveStepInputs(); ck.step--; renderChecklist(); };
+  $("#ckNext").onclick = () => { if(step<2){ ck.step++; renderChecklist(); $("#checklist").scrollTop=0; } else submitChecklist(); };
+  if(step===0) $("#checklistInner").querySelectorAll(".toggle").forEach(b => b.onclick = () => { const i=+b.dataset.i; ck.ppe[i]=!ck.ppe[i]; const y=$("#checklist").scrollTop; renderChecklist(); $("#checklist").scrollTop=y; });
+  if(step===1) $("#checklistInner").querySelectorAll(".seg button").forEach(b => b.onclick = () => {
+    const i = +b.parentElement.dataset.i; ck.ans[i] = b.dataset.v;
+    b.parentElement.querySelectorAll("button").forEach(x=>x.classList.toggle("sel", x===b));
+    const done = ck.ans.filter(x=>x).length;
+    $("#checklistInner").querySelector("p.muted").textContent = `${done}/${a.checks.length} respondidas. Los puntos con borde rojo son críticos: un «No» deja el equipo fuera de servicio.`;
+    $("#ckNext").disabled = !ck.ans.every(x=>x);
+  });
+  if(step===2) initSignature();
+}
+function saveStepInputs(){ if($("#opName")){ ck.operator=$("#opName").value; ck.notes=$("#opNotes").value; } }
+function initSignature(){
+  const cv = $("#sig"), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio||1;
+  cv.width = r.width*dpr; cv.height = r.height*dpr;
+  const ctx = cv.getContext("2d"); ctx.scale(dpr,dpr); ctx.lineWidth=2.4; ctx.lineCap="round"; ctx.strokeStyle="#111";
+  let drawing=false; ck.signed=false;
+  const pos = e => { const b=cv.getBoundingClientRect(); return [e.clientX-b.left, e.clientY-b.top]; };
+  cv.onpointerdown = e => { drawing=true; cv.setPointerCapture(e.pointerId); const [x,y]=pos(e); ctx.beginPath(); ctx.moveTo(x,y); };
+  cv.onpointermove = e => { if(!drawing) return; const [x,y]=pos(e); ctx.lineTo(x,y); ctx.stroke(); ck.signed=true; };
+  cv.onpointerup = cv.onpointercancel = () => drawing=false;
+  $("#sigClear").onclick = () => { ctx.clearRect(0,0,cv.width,cv.height); ck.signed=false; };
+}
+function submitChecklist(){
+  saveStepInputs();
+  const {a} = ck;
+  if(!ck.operator.trim()){ toast("Escribe el nombre del operador."); $("#opName").focus(); return; }
+  if(!ck.signed){ toast("Firma en el recuadro para registrar."); return; }
+  LS.set("operator", ck.operator.trim());
+  const critFail = a.checks.some((c,i)=>c[1] && ck.ans[i]==="no");
+  const fails = a.checks.filter((c,i)=>ck.ans[i]==="no").map(c=>c[0]);
+  const result = critFail ? "no_apto" : "apto";
+  addHistory({type:"checklist", assetId:a.id, assetName:a.name, operator:ck.operator.trim(), result, fails, notes:ck.notes, signature:$("#sig").toDataURL("image/png")});
+  closeChecklist();
+  renderAsset();
+  if(result==="apto"){
+    beep(660,.1); setTimeout(()=>beep(990,.12),120);
+    openModal(`<div style="text-align:center"><div style="width:64px;height:64px;border-radius:50%;background:var(--green);color:#04210f;display:grid;place-items:center;margin:0 auto 12px">${svg("check",34,3)}</div>
+      <h1 style="font-size:22px">Apto para uso</h1><p class="muted">Checklist registrado${fails.length?" con "+fails.length+" observación(es)":""}. ¿Iniciar el temporizador de uso continuo (máx. ${a.maxUse} min)?</p></div>
+      <button class="btn green" id="startTimer">Iniciar uso y temporizador</button><button class="btn ghost" data-close style="margin-top:10px">Ahora no</button>`);
+    $("#startTimer").onclick = () => { closeModal(); startSession(a); };
+  } else {
+    beep(220,.3);
+    openModal(`<div style="text-align:center"><div style="width:64px;height:64px;border-radius:50%;background:var(--red);color:#fff;display:grid;place-items:center;margin:0 auto 12px">${svg("x",34,3)}</div>
+      <h1 style="font-size:22px">Equipo fuera de servicio</h1><p class="muted">No operes este equipo. Aplica bloqueo y etiquetado (LOTO) y avisa a mantenimiento.</p></div>
+      <button class="btn red" id="toInc">Reportar falla ahora</button><button class="btn ghost" id="toLoto" style="margin-top:10px">Ver procedimiento LOTO</button><button class="btn ghost" data-close style="margin-top:10px">Cerrar</button>`);
+    $("#toInc").onclick = () => incidentForm(a, "Falla de equipo", "Checklist no apto: "+fails.join("; "));
+    $("#toLoto").onclick = lotoModal;
+  }
+}
+
+/* ===================== TEMPORIZADOR DE USO ===================== */
+let timerInt = null;
+function startSession(a){
+  state.session = {assetId:a.id, assetName:a.name, limit:a.maxUse, start:Date.now(), acc:0, paused:false, warned:false, over:false};
+  LS.set("session", state.session); runTimer(); toast("Temporizador iniciado");
+}
+function elapsed(){ const s=state.session; return s.acc + (s.paused?0:Date.now()-s.start); }
+function runTimer(){
+  clearInterval(timerInt);
+  if(!state.session){ $("#timer").classList.remove("show"); return; }
+  $("#timer").classList.add("show");
+  const upd = () => {
+    const s = state.session; if(!s) return;
+    const ms = elapsed(), lim = s.limit*60000, pct = Math.min(100, ms/lim*100);
+    const m = Math.floor(ms/60000), sec = Math.floor(ms/1000)%60;
+    $("#timerTime").textContent = String(m).padStart(2,"0")+":"+String(sec).padStart(2,"0");
+    $("#timerBar").style.width = pct+"%";
+    $("#timerLabel").textContent = (s.paused?"En pausa · ":"En uso · ")+s.assetName.split(" ").slice(0,2).join(" ")+" · máx "+s.limit+" min";
+    $("#timerPause").textContent = s.paused ? "Seguir" : "Pausa";
+    $("#timer").classList.toggle("warn", pct>=80 && pct<100);
+    $("#timer").classList.toggle("over", pct>=100);
+    if(pct>=80 && !s.warned){ s.warned=true; LS.set("session",s); beep(700,.15); navigator.vibrate&&navigator.vibrate(200); toast("Quedan "+Math.ceil((lim-ms)/60000)+" min de uso continuo", 4000); }
+    if(pct>=100 && !s.over){ s.over=true; LS.set("session",s); alarm(); openModal(`<div style="text-align:center"><div style="width:64px;height:64px;border-radius:50%;background:var(--red);color:#fff;display:grid;place-items:center;margin:0 auto 12px">${svg("clock",32,2.6)}</div><h1 style="font-size:22px">Límite de uso alcanzado</h1><p class="muted">Has alcanzado ${s.limit} min de uso continuo. Detén el equipo y toma un descanso mínimo de 10 minutos para reducir la exposición.</p></div><button class="btn red" id="endNow">Detener y registrar</button><button class="btn ghost" data-close style="margin-top:10px">Entendido</button>`); $("#endNow").onclick=()=>{closeModal(); endSession();}; }
+  };
+  upd(); timerInt = setInterval(upd, 1000);
+}
+$("#timerPause").onclick = () => {
+  const s = state.session; if(!s) return;
+  if(s.paused){ s.paused=false; s.start=Date.now(); } else { s.acc += Date.now()-s.start; s.paused=true; }
+  LS.set("session", s); runTimer();
+};
+$("#timerStop").onclick = () => { if(confirm("¿Finalizar la sesión de uso?")) endSession(); };
+function endSession(){
+  const s = state.session; if(!s) return;
+  const min = Math.round(elapsed()/60000*10)/10;
+  addHistory({type:"usage", assetId:s.assetId, assetName:s.assetName, minutes:min, limit:s.limit, exceeded:min>s.limit});
+  state.session = null; LS.set("session", null); runTimer(); toast("Sesión registrada: "+min+" min");
+}
+
+/* ===================== INCIDENTES ===================== */
+function incidentForm(a, presetType, presetDesc){
+  openModal(`<h2>Reportar incidente</h2><h1 style="font-size:20px;margin-top:4px">${esc(a.name)} <span class="tag">#${a.id}</span></h1>
+  <form id="incForm" class="stack" style="margin-top:12px">
+    <div><label class="lbl">Tipo</label><select class="field" id="incType">
+      ${["Casi accidente","Lesión personal","Falla de equipo","Condición insegura","Daño material","Derrame / fuga"].map(t=>`<option ${t===presetType?"selected":""}>${t}</option>`).join("")}</select></div>
+    <div><label class="lbl">Gravedad</label><div class="seg" id="incSev">${["Baja","Media","Alta"].map((s,i)=>`<button type="button" data-v="${i===2?'no':i===1?'na':'si'}" data-s="${s}" class="${i===1?'sel':''}">${s}</button>`).join("")}</div></div>
+    <div><label class="lbl" for="incDesc">Descripción</label><textarea class="field" id="incDesc" rows="3" required placeholder="¿Qué ocurrió? ¿Dónde? ¿Quién estuvo involucrado?">${esc(presetDesc||"")}</textarea></div>
+    <div><label class="lbl" for="incName">Reportado por</label><input class="field" id="incName" value="${esc(LS.get("operator",""))}" placeholder="Nombre" required></div>
+    <label class="row small"><input type="checkbox" id="incLoto"> Equipo bloqueado y etiquetado (LOTO)</label>
+    <button class="btn red">Enviar reporte</button>
+    <button type="button" class="btn ghost" data-close>Cancelar</button>
+  </form>`);
+  let sev = "Media";
+  document.querySelectorAll("#incSev button").forEach(b=>b.onclick=()=>{ sev=b.dataset.s; document.querySelectorAll("#incSev button").forEach(x=>x.classList.toggle("sel",x===b)); });
+  $("#incForm").onsubmit = e => {
+    e.preventDefault();
+    const code = "INC-"+new Date().getFullYear()+"-"+String(Math.floor(Math.random()*9000)+1000);
+    addHistory({type:"incident", code, assetId:a.id, assetName:a.name, kind:$("#incType").value, severity:sev, desc:$("#incDesc").value.trim(), operator:$("#incName").value.trim(), loto:$("#incLoto").checked});
+    LS.set("operator", $("#incName").value.trim());
+    closeModal(); toast("Reporte "+code+" registrado. Supervisor notificado.", 3500);
+    if(location.hash==="#asset") renderAsset();
+  };
+}
+
+/* ===================== MODALES DE APOYO ===================== */
+function lotoModal(){
+  const st = [["Preparar","Identifica todas las fuentes de energía (eléctrica, neumática, hidráulica, gravedad)."],["Avisar","Informa a las personas afectadas que el equipo será bloqueado."],["Apagar","Detén el equipo con el procedimiento normal de parada."],["Aislar","Desconecta la clavija o abre el seccionador; cierra válvulas."],["Bloquear y etiquetar","Coloca tu candado personal y la etiqueta con nombre, fecha y motivo."],["Liberar energía residual","Descarga condensadores, purga presión, baja cargas suspendidas."],["Verificar","Intenta arrancar el equipo para confirmar energía cero. Vuelve el control a OFF."]];
+  openModal(`<h2>Procedimiento LOTO</h2><h1 style="font-size:20px;margin-top:4px">Bloqueo y etiquetado</h1>
+  <svg viewBox="0 0 320 90" style="width:100%;margin:8px 0 4px" aria-hidden="true">
+    <rect x="10" y="25" width="70" height="44" rx="8" fill="#222a34" stroke="#2c3541"/><text x="45" y="52" fill="#eef1f4" font-size="11" text-anchor="middle" font-family="Archivo">Energía</text>
+    <path d="M80 47h40" stroke="#f5b300" stroke-width="3" stroke-dasharray="5 4"/>
+    <rect x="120" y="25" width="80" height="44" rx="8" fill="#3a1517" stroke="#ef4444"/><text x="160" y="45" fill="#ff8a8a" font-size="11" text-anchor="middle" font-family="Archivo" font-weight="700">AISLADO</text><text x="160" y="59" fill="#ff8a8a" font-size="9" text-anchor="middle" font-family="Archivo">candado + etiqueta</text>
+    <path d="M200 47h40" stroke="#2c3541" stroke-width="3"/>
+    <rect x="240" y="25" width="70" height="44" rx="8" fill="#0f2e1c" stroke="#22c55e"/><text x="275" y="45" fill="#9ff0bd" font-size="11" text-anchor="middle" font-family="Archivo" font-weight="700">Equipo</text><text x="275" y="59" fill="#9ff0bd" font-size="9" text-anchor="middle" font-family="Archivo">energía cero</text>
+    <rect x="148" y="2" width="24" height="18" rx="4" fill="#f5b300"/><path d="M153 8V5a7 7 0 0 1 14 0v3" stroke="#f5b300" stroke-width="3" fill="none" transform="translate(0,-2)"/>
+  </svg>
+  ${st.map((s,i)=>`<div class="loto-step"><span class="n">${i+1}</span><div><b>${s[0]}</b><div class="muted small">${s[1]}</div></div></div>`).join("")}
+  <button class="btn ghost" data-close style="margin-top:12px">Cerrar</button>`);
+}
+function firstAidModal(){
+  const a = asset();
+  openModal(`<h2>Botiquín más cercano</h2><h1 style="font-size:20px;margin-top:4px">A 35 m · ~1 min caminando</h1>
+  <div class="card row" style="margin-top:10px">${svg("pin",22)}<div><b>Botiquín B-2</b><div class="muted small">${esc(a.location.split("·").slice(0,2).join("·"))} · junto a la salida de emergencia norte</div></div></div>
+  <div class="card row" style="margin-top:10px">${svg("shield",22)}<div><b>Brigadista de turno</b><div class="muted small">Ext. 2210 · Radio canal 4</div></div></div>
+  <div class="card" style="margin-top:10px"><b>Mientras llega ayuda</b><ol style="margin:6px 0 0;padding-left:20px" class="small"><li>Asegura la zona y detén el equipo.</li><li>No muevas al herido si hay sospecha de lesión de columna.</li><li>Hemorragia: presión directa con gasa limpia.</li><li>Ojos con partículas: lava con agua 15 min, no frotes.</li><li>Quemaduras: agua fría 10–20 min, sin hielo.</li></ol></div>
+  <a class="btn red" href="tel:112" style="margin-top:12px;text-decoration:none">Llamar a emergencias (112)</a>
+  <button class="btn ghost" data-close style="margin-top:10px">Cerrar</button>`);
+}
+$("#sosBtn").onclick = () => {
+  const a = asset(); alarm();
+  openModal(`<div class="tag" style="color:#ff8a8a">PARADA DE EMERGENCIA</div><h1 style="font-size:22px;margin-top:4px">${esc(a.name)}</h1>
+  <div class="card" style="margin-top:10px;border-color:#6b2226">${a.stop.map((s,i)=>`<div class="loto-step" style="${i===0?'border-top:0':''}"><span class="n" style="background:var(--red);color:#fff">${i+1}</span><div>${esc(s)}</div></div>`).join("")}</div>
+  <div class="row" style="margin-top:12px"><a class="btn red" href="tel:112" style="text-decoration:none">Llamar 112</a><button class="btn ghost" id="sosInc">Reportar</button></div>
+  <button class="btn ghost" data-close style="margin-top:10px">Cerrar</button>`);
+  $("#sosInc").onclick = () => incidentForm(a, "Lesión personal");
+};
+$("#qrLabelsBtn").onclick = () => {
+  openModal(`<h2>Etiquetas QR</h2><p class="muted small">Imprime estas etiquetas y pégalas en cada activo. También puedes escanearlas desde otra pantalla para probar el escáner.</p>
+  <div id="printArea"><div class="qrgrid">${ASSETS.map(a=>`<div class="qrcard"><div class="q2" id="qr-${a.id}"></div><b>${esc(a.name)}</b><span>${a.id}</span></div>`).join("")}</div></div>
+  <button class="btn" id="printQr" style="margin-top:14px">Imprimir etiquetas</button><button class="btn ghost" data-close style="margin-top:10px">Cerrar</button>`);
+  ASSETS.forEach(a => {
+    const el = document.getElementById("qr-"+a.id);
+    if(window.QRCode) new QRCode(el, {text:"SAFESCAN:"+a.id, width:180, height:180, correctLevel:QRCode.CorrectLevel.M});
+    else el.innerHTML = `<div style="padding:30px 0" class="mono">${a.id}</div>`;
+  });
+  $("#printQr").onclick = () => window.print();
+};
+
+/* ===================== HISTORIAL ===================== */
+function updateBadge(){
+  const n = state.history.filter(h => new Date(h.date).toDateString()===today().toDateString()).length;
+  $("#histBadge").style.display = n ? "grid" : "none"; $("#histBadge").textContent = n;
+}
+function renderHistory(){
+  const f = $("#histFilter").value;
+  const items = state.history.filter(h => f==="all" || h.type===f);
+  if(!items.length){ $("#histList").innerHTML = `<div class="empty">${svg("list",40,1.5)}<p>Aún no hay registros.<br>Completa un checklist o reporta un incidente.</p></div>`; return; }
+  $("#histList").innerHTML = items.map(h => {
+    let ic, col, title, sub, pill="";
+    if(h.type==="checklist"){ ic="check"; col=h.result==="apto"?"var(--green)":"var(--red)"; title="Checklist · "+h.assetName; sub=h.operator+(h.fails&&h.fails.length?" · "+h.fails.length+" observación(es)":""); pill=`<span class="pill ${h.result==='apto'?'ok':'bad'}">${h.result==='apto'?'Apto':'No apto'}</span>`; }
+    else if(h.type==="incident"){ ic="alert"; col=h.severity==="Alta"?"var(--red)":h.severity==="Media"?"var(--amber)":"var(--muted)"; title=h.kind+" · "+h.assetName; sub=h.code+" · "+h.desc; pill=`<span class="pill ${h.severity==='Alta'?'bad':'warn'}">${h.severity}</span>`; }
+    else { ic="clock"; col=h.exceeded?"var(--red)":"var(--blue)"; title="Uso · "+h.assetName; sub=h.minutes+" min de "+h.limit+" permitidos"; pill=h.exceeded?`<span class="pill bad">Excedido</span>`:""; }
+    return `<div class="hist-item" data-id="${h.id}"><span class="ic" style="background:var(--card2);color:${col}">${svg(ic)}</span><div style="flex:1;min-width:0"><b style="display:block">${esc(title)}</b><div class="muted small" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(sub)}</div><div class="mono small" style="color:var(--dim);margin-top:2px">${fmtDT(h.date)}</div></div>${pill}</div>`;
+  }).join("");
+  $("#histList").querySelectorAll(".hist-item").forEach(el => el.onclick = () => {
+    const h = state.history.find(x=>x.id===el.dataset.id); if(!h) return;
+    let det = "";
+    if(h.type==="checklist") det = `<p><b>Operador:</b> ${esc(h.operator)}</p>${h.fails.length?`<p><b>Puntos fallidos:</b></p><ul>${h.fails.map(f=>`<li>${esc(f)}</li>`).join("")}</ul>`:"<p>Sin observaciones.</p>"}${h.notes?`<p><b>Notas:</b> ${esc(h.notes)}</p>`:""}${h.signature?`<img src="${h.signature}" alt="Firma" style="width:100%;background:#fff;border-radius:10px">`:""}`;
+    else if(h.type==="incident") det = `<p><b>Código:</b> <span class="mono">${esc(h.code)}</span></p><p><b>Gravedad:</b> ${esc(h.severity)}</p><p><b>Descripción:</b> ${esc(h.desc)}</p><p><b>Reportado por:</b> ${esc(h.operator)}</p><p><b>LOTO aplicado:</b> ${h.loto?"Sí":"No"}</p>`;
+    else det = `<p><b>Duración:</b> ${h.minutes} min (límite ${h.limit} min)</p>`;
+    openModal(`<h2>${h.type==="checklist"?"Checklist":h.type==="incident"?"Incidente":"Sesión de uso"}</h2><h1 style="font-size:20px;margin-top:4px">${esc(h.assetName)}</h1><div class="mono small muted">${fmtDT(h.date)}</div>${det}<button class="btn ghost" data-close>Cerrar</button>`);
+  });
+}
+$("#histFilter").onchange = renderHistory;
+$("#clearHist").onclick = () => { if(state.history.length && confirm("¿Borrar todo el historial de este dispositivo?")){ state.history=[]; saveHistory(); renderHistory(); } };
+$("#exportCsv").onclick = () => {
+  if(!state.history.length){ toast("No hay datos para exportar"); return; }
+  const rows = [["fecha","tipo","activo","id_activo","persona","resultado/gravedad","detalle"]].concat(state.history.map(h=>[
+    h.date, h.type, h.assetName, h.assetId, h.operator||"", h.result||h.severity||(h.exceeded?"excedido":""),
+    h.type==="checklist"?(h.fails||[]).join(" | "):h.type==="incident"?h.code+" "+h.kind+": "+h.desc:h.minutes+" min"
+  ]));
+  const csv = "﻿"+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download = "safescan-historial-"+new Date().toISOString().slice(0,10)+".csv"; a.click();
+};
+
+/* ===================== CHAT IA ===================== */
+let chatStarted = false;
+const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+function renderChatContext(){ const a=asset(); $("#chatContext").innerHTML = `${svg(a.icon,16)} Contexto: ${esc(a.name)} <span class="tag">#${a.id}</span>`; }
+function addMsg(html, who="bot", extra={}){
+  const d = document.createElement("div"); d.className = "msg "+who;
+  d.innerHTML = html + (extra.src?`<div class="src">${extra.src}</div>`:"") + (extra.acts?`<div class="acts">${extra.acts.map((x,i)=>`<button data-i="${i}">${x[0]}</button>`).join("")}</div>`:"");
+  if(extra.acts) d.querySelectorAll(".acts button").forEach(b => b.onclick = extra.acts[+b.dataset.i][1]);
+  $("#msgs").appendChild(d); window.scrollTo({top:document.body.scrollHeight, behavior:"smooth"});
+  return d;
+}
+function startChat(){
+  chatStarted = true; const a = asset();
+  $("#msgs").innerHTML = `<div class="day">Hoy · ${new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})} · Sesión en obra</div>`;
+  addMsg(`Hola${LS.get("operator","")?" "+esc(LS.get("operator","").split(" ")[0]):""}. Soy tu asistente de seguridad. Estoy usando la ficha del <b>${esc(a.name)} ${esc(a.model)}</b>. Pregúntame sobre parada de emergencia, EPP, LOTO, tiempos de uso, primeros auxilios o cómo reportar un incidente.`, "bot",
+    {acts:[["¿Cómo hago una parada de emergencia?",()=>ask("¿Cómo hago una parada de emergencia?")],["¿Qué EPP necesito?",()=>ask("¿Qué EPP necesito?")]]});
+  renderSuggest();
+}
+function renderSuggest(){
+  const s = ["Parada de emergencia","EPP requerido","Procedimiento LOTO","¿Cuánto tiempo puedo usarlo?","Primeros auxilios","Estado de calibración","Nivel de riesgo","Reportar incidente"];
+  $("#suggest").innerHTML = s.map(x=>`<button class="chip" type="button">${x}</button>`).join("");
+  $("#suggest").querySelectorAll("button").forEach(b => b.onclick = () => ask(b.textContent));
+}
+function ask(text){
+  if(!text.trim()) return;
+  addMsg(esc(text), "user");
+  const t = addMsg(`<span class="typing"><span></span><span></span><span></span></span>`, "bot");
+  setTimeout(() => { t.remove(); const r = answer(text); addMsg(r.html, "bot", r); }, 550 + Math.random()*500);
+}
+const has = (t, words) => words.some(w => t.includes(w));
+function answer(q){
+  const a = asset(), t = norm(q), src = `Fuente: ${a.sop} · Verificado ${fmtDate(a.sopDate)}`;
+  const A = {
+    loto:["Ver diagrama LOTO", lotoModal], inc:["Reportar incidente", ()=>incidentForm(a)], aid:["Botiquín más cercano", firstAidModal],
+    ck:["Iniciar checklist", ()=>{ go("asset"); setTimeout(()=>openChecklist(a),100); }], ficha:["Ver ficha del activo", ()=>go("asset")]
+  };
+  // Cambio de activo por nombre
+  const other = ASSETS.find(x => x.id!==a.id && (t.includes(norm(x.model)) || has(t,[norm(x.name.split(" ")[0])+" ", norm(x.name.split(" ")[0])+"s"]) || t.includes(norm(x.id))));
+  if(other && has(t,["cambia","usa","sobre el","sobre la","del ","de la"])){
+    state.assetId = other.id; LS.set("asset", other.id); renderChatContext();
+    return {html:`Listo, cambié el contexto a <b>${esc(other.name)} ${esc(other.model)}</b>. ¿Qué necesitas saber?`};
+  }
+  if(has(t,["hola","buenas","buenos dias","que tal","hey"])) return {html:`¡Hola! ¿En qué te ayudo con el <b>${esc(a.name)}</b>? Puedo explicarte la parada de emergencia, el EPP, LOTO o los límites de uso.`};
+  if(has(t,["gracias","perfecto","ok ","vale"])) return {html:"De nada. Trabaja seguro. Si algo no se ve bien, detén el equipo y repórtalo."};
+  if(has(t,["parada","emergencia","detener","parar","apagar","stop","frenar"]))
+    return {html:`Para el <b>${esc(a.name)} ${esc(a.model)}</b> sigue el protocolo <b>PARAR → DESPEJAR → BLOQUEAR</b>:<ol>${a.stop.map(s=>`<li>${esc(s)}</li>`).join("")}</ol>`, src, acts:[A.loto,A.inc,A.aid]};
+  if(has(t,["loto","bloqueo","etiquetado","candado","energia cero","bloquear"]))
+    return {html:`El bloqueo y etiquetado (LOTO) garantiza energía cero antes de mantenimiento o tras una falla:<ol><li>Avisa a los afectados.</li><li>Apaga el equipo.</li><li>Aísla la energía (desconecta clavija / seccionador).</li><li>Coloca <b>tu</b> candado y etiqueta personal.</li><li>Libera la energía residual.</li><li>Verifica intentando arrancar.</li></ol>Nunca retires el candado de otra persona.`, src:"Fuente: SOP-020 LOTO general · ISO 45001 §8.1", acts:[A.loto]};
+  if(has(t,["epp","proteccion","equipo de proteccion","guante","gafa","casco","bota","careta","chaleco","mascarilla","lentes"])){
+    const req = a.ppe.filter(p=>p[1]), opt = a.ppe.filter(p=>!p[1]);
+    return {html:`Para operar el <b>${esc(a.name)}</b> necesitas:<ul>${req.map(p=>`<li><b>${esc(p[0])}</b> — obligatorio</li>`).join("")}${opt.map(p=>`<li>${esc(p[0])} — opcional / según tarea</li>`).join("")}</ul>Revisa que tu EPP no esté dañado antes de ponértelo.`, src, acts:[A.ck]};
+  }
+  if(has(t,["ruido","auditiv","oido","decibel","db"]))
+    return {html:`${a.ppe.some(p=>/auditiva/i.test(p[0]))?"La protección auditiva es <b>obligatoria</b> con este equipo.":"Este equipo no exige protección auditiva por sí solo, pero úsala si el entorno supera 85 dB(A)."} Por encima de 85 dB(A) la exposición de 8 h daña el oído; cada +3 dB reduce a la mitad el tiempo seguro. Usa tapones bien insertados u orejeras con SNR ≥ 25 dB.`, src:"Fuente: Directiva 2003/10/CE · "+a.sop};
+  if(has(t,["tiempo","minuto","cuanto","duracion","vibracion","havs","descanso","pausa","horas"])){
+    const s = state.session && state.session.assetId===a.id ? `<br><br>Llevas <b>${Math.round(elapsed()/60000)} min</b> en la sesión actual.` : "";
+    return {html:`El uso continuo máximo del <b>${esc(a.name)}</b> es de <b>${a.maxUse} minutos</b>, seguido de un descanso mínimo de 10 min.${/vibraci/i.test(a.warning)?" Esto limita la exposición a vibración mano-brazo (HAVS): hormigueo, dedos blancos o pérdida de fuerza son señales de alerta, repórtalas.":""} Usa el temporizador de la app tras aprobar el checklist para que te avise al 80 % y al 100 %.${s}`, src, acts:[A.ck]};
+  }
+  if(has(t,["herid","lesion","corte","sangr","quemad","primeros auxilios","botiquin","golpe","ojo","particula","desmay","electrocut","descarga"]))
+    return {html:`Ante una lesión:<ol><li>Detén el equipo y asegura la zona.</li><li>Llama al brigadista (ext. 2210) o al <b>112</b> si es grave.</li><li>Hemorragia: presión directa. Partícula en ojo: lava 15 min, no frotes. Quemadura: agua fría 10–20 min.</li><li>Descarga eléctrica: <b>no toques</b> a la persona hasta cortar la corriente.</li><li>Reporta el incidente aunque parezca leve.</li></ol>`, src:"Fuente: Plan de emergencia de obra · PE-03", acts:[A.aid,A.inc]};
+  if(has(t,["incidente","reportar","accidente","casi","reporte","notificar","avisar"]))
+    return {html:`Reporta todo incidente o casi accidente en menos de 5 min al supervisor de turno. Desde aquí puedes registrar tipo, gravedad y descripción; quedará en el historial con un código de seguimiento.`, src:"Fuente: Procedimiento de reporte · PR-07", acts:[A.inc]};
+  if(has(t,["calibr","mantenimiento","inspeccion","revision","servicio","vencid"])){
+    const c = calibStatus(a);
+    return {html:`<b>Calibración:</b> ${c.expired?`<span style="color:#ff8a8a">vencida desde el ${fmtDate(c.due)}</span>. No debería usarse hasta recalibrar.`:`vigente hasta el ${fmtDate(c.due)} (${c.left} días).`}<br><b>Última inspección:</b> ${fmtDate(a.lastInspection)} — ${esc(a.inspections[0][2])}.`, src, acts:[A.ficha]};
+  }
+  if(has(t,["checklist","antes de usar","previo","verificar","revisar"]))
+    return {html:`El checklist previo al uso tiene 3 pasos: confirmar EPP, inspeccionar ${a.checks.length} puntos (${a.checks.filter(c=>c[1]).length} críticos) y firmar. Si un punto crítico falla, el equipo queda fuera de servicio automáticamente.`, acts:[A.ck]};
+  if(has(t,["riesgo","peligro","seguro","peligroso","indice"])){
+    const r = riskScore(a);
+    return {html:`El índice de riesgo actual es <b style="color:${r.level[1]}">${r.s}/100 (${r.level[0]})</b>.<br>${esc(a.warning)}${r.factors.length?`<ul>${r.factors.map(f=>`<li>${esc(f[0])} (${f[1]>0?"+":""}${f[1]})</li>`).join("")}</ul>`:""}`, src, acts:[A.ficha]};
+  }
+  if(has(t,["donde","ubicacion","ubicado","esta el"]))
+    return {html:`El <b>${esc(a.name)}</b> está asignado a: <b>${esc(a.location)}</b>.`, acts:[A.aid]};
+  if(has(t,["uso","sirve","para que","usar","manual","funciona"]))
+    return {html:a.manual.map(m=>`<b>${esc(m[0])}:</b> ${esc(m[1])}`).join("<br><br>"), src:"Fuente: Manual del fabricante · "+a.model};
+  return {html:`No tengo una respuesta verificada para eso en la ficha del <b>${esc(a.name)}</b>. Prueba con: parada de emergencia, EPP, LOTO, tiempo de uso, primeros auxilios, calibración o riesgo. Si es urgente, consulta a tu supervisor.`, acts:[["Parada de emergencia",()=>ask("Parada de emergencia")],["EPP",()=>ask("¿Qué EPP necesito?")]]};
+}
+$("#chatForm").onsubmit = e => { e.preventDefault(); const v = $("#chatInput").value; $("#chatInput").value=""; ask(v); };
+$("#clearChat").onclick = startChat;
+// Dictado por voz
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if(SR){
+  const rec = new SR(); rec.lang = "es-ES"; rec.interimResults = false;
+  rec.onresult = e => { const txt = e.results[0][0].transcript; ask(txt); };
+  rec.onend = () => $("#micBtn").classList.remove("rec");
+  rec.onerror = () => { $("#micBtn").classList.remove("rec"); toast("No se pudo usar el micrófono"); };
+  $("#micBtn").onclick = () => { try{ rec.start(); $("#micBtn").classList.add("rec"); toast("Escuchando…"); }catch(e){ rec.stop(); } };
+} else $("#micBtn").style.display = "none";
+
+/* ===================== SONIDO ===================== */
+let actx = null;
+function beep(f=880, d=.1){
+  try{ actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value=f; o.type="square";
+    g.gain.setValueAtTime(.08, actx.currentTime); g.gain.exponentialRampToValueAtTime(.0001, actx.currentTime+d);
+    o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime+d);
+  }catch(e){}
+}
+function alarm(){ [0,250,500].forEach(t=>setTimeout(()=>beep(t%500?600:900,.18),t)); navigator.vibrate && navigator.vibrate([200,100,200]); }
+
+/* ===================== INICIO ===================== */
+// Soporta enlaces directos: index.html?id=D25133K-A14
+(function init(){
+  const p = new URLSearchParams(location.search).get("id");
+  if(p && ASSETS.some(a=>a.id.toUpperCase()===p.toUpperCase())){ state.assetId = ASSETS.find(a=>a.id.toUpperCase()===p.toUpperCase()).id; LS.set("asset", state.assetId); if(!location.hash) location.hash="asset"; }
+  updateBadge(); runTimer(); route();
+})();
+</script>
+</body>
+</html>
