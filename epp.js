@@ -256,7 +256,7 @@
   document.addEventListener("DOMContentLoaded", () => {
     if (!$("#view-epp")) return;
     $("#eppCam").onclick = () => { $("#eppStill").style.display = "none"; $("#eppVideo").style.display = ""; startCam(); };
-    $("#eppStop").onclick = stopCam;
+    $("#eppStop").onclick = snap;   // "Detener" congela la foto y la analiza
     $("#eppSnap").onclick = snap;
     $("#eppAgain").onclick = again;
     $("#eppFile").onchange = e => fromFile(e.target.files[0]);
