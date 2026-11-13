@@ -28,12 +28,18 @@ model.train(data="construction-ppe.yaml", epochs=EPOCHS, imgsz=IMGSZ, batch=BATC
 
 best = YOLO(str(model.trainer.best))   # ruta real de best.pt (Ultralytics puede anidar en runs/detect/)
 
-# Métricas reales sobre el conjunto de TEST (no visto durante el entrenamiento)
-m = best.val(data="construction-ppe.yaml", split="test", imgsz=IMGSZ, plots=True)
+# Métricas reales (test si existe; si no, val, donde best.pt fue elegido => ligeramente optimista)
+# Algunas versiones del dataset no traen split "test": se usa "val" y se declara.
+try:
+    SPLIT = "test"
+    m = best.val(data="construction-ppe.yaml", split=SPLIT, imgsz=IMGSZ, plots=True)
+except FileNotFoundError:
+    SPLIT = "val"
+    m = best.val(data="construction-ppe.yaml", split=SPLIT, imgsz=IMGSZ, plots=True)
 names = best.names
 metrics = {
     "base_model": BASE, "epochs": EPOCHS, "imgsz": IMGSZ, "seed": SEED,
-    "split": "test",
+    "split": SPLIT,
     "precision": float(m.box.mp), "recall": float(m.box.mr),
     "mAP50": float(m.box.map50), "mAP50_95": float(m.box.map),
     "per_class": {names[int(c)]: {"precision": float(m.box.p[i]), "recall": float(m.box.r[i]),
