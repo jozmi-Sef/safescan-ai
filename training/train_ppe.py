@@ -5,7 +5,7 @@ Ejecutar en Google Colab (GPU T4) o local con GPU:
     python train_ppe.py            # ~30-60 min en T4
 
 Genera:
-    runs/ppe/weights/best.pt
+    <carpeta de resultados>/weights/best.pt  (la ruta se imprime al final)
     ../models/ppe.onnx  y  ../models/ppe.json   (los usa la web)
     ../models/metrics.json                      (para el informe, PPT y póster)
     runs/ppe/*.png                              (matriz de confusión, curvas PR, etc.)
@@ -26,7 +26,7 @@ model = YOLO(BASE)
 model.train(data="construction-ppe.yaml", epochs=EPOCHS, imgsz=IMGSZ, batch=BATCH,
             seed=SEED, project="runs", name="ppe", exist_ok=True)
 
-best = YOLO("runs/ppe/weights/best.pt")
+best = YOLO(str(model.trainer.best))   # ruta real de best.pt (Ultralytics puede anidar en runs/detect/)
 
 # Métricas reales sobre el conjunto de TEST (no visto durante el entrenamiento)
 m = best.val(data="construction-ppe.yaml", split="test", imgsz=IMGSZ, plots=True)
