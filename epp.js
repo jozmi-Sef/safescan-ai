@@ -12,7 +12,13 @@
   const META_URL = "models/ppe.json";
 
   let session = null, meta = null, stream = null, running = false, busy = false;
-  let lastLog = 0, fpsEMA = 0;
+  let lastLog = 0, fpsEMA = 0, lastDets = null, lastSize = null;
+  const KEYS = ["helmet", "vest", "gloves", "boots", "goggles"];
+  function getRequired() {
+    const r = KEYS.filter(k => { const el = $("#eppReq_" + k); return el ? el.checked : true; });
+    return r;
+  }
+  function evalNow(dets) { return L.evaluate(dets, { required: getRequired() }); }
   const work = document.createElement("canvas");
   const wctx = work.getContext("2d", { willReadFrequently: true });
 
@@ -116,7 +122,7 @@
       g.fillStyle = "#fff"; g.fillText(t, d.x1 + 4, d.y1 - 4);
     });
     evals.forEach((e, i) => {
-      const p = e.person, col = e.compliant ? COLORS.ok : (e.helmet === "falta" || e.vest === "falta") ? COLORS.falta : COLORS.mal;
+      const p = e.person, col = e.compliant ? COLORS.ok : e.missing ? COLORS.falta : COLORS.mal;
       g.strokeStyle = col; g.lineWidth = Math.max(3, sw / 200);
       g.strokeRect(p.x1, p.y1, p.x2 - p.x1, p.y2 - p.y1);
       const t = `Persona ${i + 1}: ${e.compliant ? "CUMPLE" : "NO CUMPLE"}`;
@@ -136,20 +142,20 @@
       <div class="card" style="margin-bottom:8px;padding:12px">
         <div class="row between"><b>Persona ${i + 1}</b>
           <span class="pill ${e.compliant ? "ok" : "bad"}">${e.compliant ? "Cumple" : "No cumple"}</span></div>
-        <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px">${chip("Casco", e.helmet)}${chip("Chaleco", e.vest)}</div>
+        <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px">${e.required.map(k => chip(L.ITEMS[k].label, e.items[k])).join("")}</div>
         ${e.issues.length ? `<ul class="small" style="margin:8px 0 0 18px">${e.issues.map(x => `<li>${x}</li>`).join("")}</ul>` : ""}
       </div>`).join("");
   }
 
   function maybeLog(evals) {
-    const bad = evals.filter(e => e.helmet === "falta" || e.helmet === "mal" || e.vest === "falta" || e.vest === "mal");
+    const bad = evals.filter(e => e.missing || e.misplaced);
     if (!bad.length || Date.now() - lastLog < 20000 || typeof addHistory !== "function") return;
     lastLog = Date.now();
     const issues = [...new Set(bad.flatMap(e => e.issues))].join("; ");
     const a = (typeof asset === "function") ? asset() : { id: "-", name: "Zona monitoreada" };
     addHistory({
       type: "incident", code: "EPP-" + String(Date.now()).slice(-6), assetId: a.id, assetName: a.name,
-      kind: "EPP", severity: bad.some(e => e.helmet === "falta" || e.vest === "falta") ? "Alta" : "Media",
+      kind: "EPP", severity: bad.some(e => e.missing) ? "Alta" : "Media",
       desc: `${bad.length} persona(s) sin EPP correcto: ${issues}`, operator: "Detección automática", loto: false
     });
     if (typeof toast === "function") toast("Incumplimiento de EPP registrado en el historial");
@@ -164,7 +170,7 @@
       const t0 = performance.now();
       try {
         const dets = await infer(v, v.videoWidth, v.videoHeight);
-        const evals = L.evaluate(dets);
+        const evals = evalNow(dets);
         draw(dets, evals, v.videoWidth, v.videoHeight);
         renderResults(evals); maybeLog(evals);
         const dt = performance.now() - t0; fpsEMA = fpsEMA ? fpsEMA * 0.8 + (1000 / dt) * 0.2 : 1000 / dt;
@@ -222,7 +228,8 @@
     if (!(await loadModel())) return;
     const t0 = performance.now();
     const dets = await infer(c, w, h);
-    const evals = L.evaluate(dets);
+    const evals = evalNow(dets);
+    lastDets = dets; lastSize = [w, h];
     draw(dets, evals, w, h); renderResults(evals); maybeLog(evals);
     setStatus(`Captura analizada · ${(performance.now() - t0).toFixed(0)} ms`);
   }
@@ -247,7 +254,8 @@
     setStatus("Analizando imagen…");
     const t0 = performance.now();
     const dets = await infer(img, img.naturalWidth, img.naturalHeight);
-    const evals = L.evaluate(dets);
+    const evals = evalNow(dets);
+    lastDets = dets; lastSize = [img.naturalWidth, img.naturalHeight];
     draw(dets, evals, img.naturalWidth, img.naturalHeight);
     renderResults(evals); maybeLog(evals);
     setStatus(`Imagen analizada · ${(performance.now() - t0).toFixed(0)} ms`);
@@ -260,6 +268,14 @@
     $("#eppSnap").onclick = snap;
     $("#eppAgain").onclick = again;
     $("#eppFile").onchange = e => fromFile(e.target.files[0]);
+    KEYS.forEach(k => {
+      const el = $("#eppReq_" + k); if (!el) return;
+      try { const sv = JSON.parse(localStorage.getItem("ss_epp_req") || "null"); if (sv) el.checked = sv.includes(k); } catch (e) {}
+      el.onchange = () => {
+        try { localStorage.setItem("ss_epp_req", JSON.stringify(getRequired())); } catch (e) {}
+        if (lastDets && !running) { const ev = evalNow(lastDets); draw(lastDets, ev, lastSize[0], lastSize[1]); renderResults(ev); }
+      };
+    });
     const pre = () => { if (location.hash === "#epp") loadModel(); };
     window.addEventListener("hashchange", pre); pre();
   });

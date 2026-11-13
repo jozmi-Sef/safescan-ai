@@ -265,7 +265,7 @@ body.chat-mode .timer{bottom:calc(var(--nav) + 130px + env(safe-area-inset-botto
     <!-- EPP -->
     <section class="view" id="view-epp">
       <h1>Detección de EPP</h1>
-      <div class="muted" style="margin-bottom:12px">Verifica casco y chaleco, y detecta si están mal colocados. Procesa en tu dispositivo.</div>
+      <div class="muted" style="margin-bottom:12px">Verifica casco, chaleco, guantes, botas y lentes, y detecta si están mal colocados. Procesa en tu dispositivo.</div>
       <div class="epp-stage" id="eppStage">
         <video id="eppVideo" playsinline muted></video>
         <img id="eppStill" alt="Imagen analizada">
@@ -285,6 +285,16 @@ body.chat-mode .timer{bottom:calc(var(--nav) + 130px + env(safe-area-inset-botto
       <button class="btn" id="eppSnap" style="display:none;margin:8px 0">Capturar y analizar EPP</button>
       <button class="btn ghost" id="eppAgain" style="display:none;margin:8px 0">Tomar otra foto</button>
       <p class="muted small" id="eppModelInfo" style="margin:0 0 14px"></p>
+      <div class="card" style="margin-bottom:12px;padding:12px">
+        <div class="lbl" style="margin-bottom:8px">EPP requerido en esta zona</div>
+        <div class="row" style="gap:12px;flex-wrap:wrap">
+          <label class="small"><input type="checkbox" id="eppReq_helmet" checked> Casco</label>
+          <label class="small"><input type="checkbox" id="eppReq_vest" checked> Chaleco</label>
+          <label class="small"><input type="checkbox" id="eppReq_gloves" checked> Guantes</label>
+          <label class="small"><input type="checkbox" id="eppReq_boots" checked> Botas</label>
+          <label class="small"><input type="checkbox" id="eppReq_goggles" checked> Lentes</label>
+        </div>
+      </div>
       <div id="eppResults"></div>
     </section>
 

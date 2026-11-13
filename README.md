@@ -1,7 +1,7 @@
 # SafeScan AI — Detección de EPP
 
 App web (HTML + JS) que combina el escáner de activos con un detector de EPP
-(casco, chaleco) que corre 100 % en el navegador con YOLO + onnxruntime-web.
+(casco, chaleco, guantes, botas, lentes) que corre 100 % en el navegador con YOLO + onnxruntime-web.
 
 ## Cómo funciona la detección
 1. YOLO detecta `Person`, `helmet`, `vest`, `no_helmet`, … (dataset Construction-PPE).

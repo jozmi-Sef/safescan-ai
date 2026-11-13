@@ -21,7 +21,9 @@
     // Chaleco: fracción mínima del torso cubierta por el chaleco.
     vestTorsoCoverMin: 0.45,
     // Asociación de una caja a una persona: fracción de la caja dentro de la persona.
-    assocMin: 0.5
+    assocMin: 0.5,
+    // Botas: el centro debe estar en el 30 % inferior de la persona.
+    bootsMinFrac: 0.70
   };
 
   const area = b => Math.max(0, b.x2 - b.x1) * Math.max(0, b.y2 - b.y1);
@@ -53,56 +55,73 @@
     return out;
   }
 
+  /** EPP soportados: clase "puesta" y clase "falta" del dataset. */
+  const ITEMS = {
+    helmet:  { ok: "helmet",  no: "no_helmet", label: "Casco" },
+    vest:    { ok: "vest",    no: "no_vest",   label: "Chaleco" },
+    gloves:  { ok: "gloves",  no: "no_gloves", label: "Guantes" },
+    boots:   { ok: "boots",   no: "no_boots",  label: "Botas" },
+    goggles: { ok: "goggles", no: "no_goggle", label: "Lentes" }
+  };
+
   /**
    * @param dets  detecciones con nombre de clase en `cls`
-   * @param cfg   sobrescribe CFG si se requiere
-   * @returns [{person, helmet, vest, compliant, issues[]}]
+   * @param cfg   sobrescribe CFG; `required` = lista de EPP exigidos (por defecto todos)
+   * @returns [{person, items:{helmet,vest,gloves,boots,goggles}, required, helmet, vest,
+   *            compliant, missing, misplaced, issues[]}]
+   *          estado de cada ítem: "ok" | "mal" | "falta" | "n/d"
    */
   function evaluate(dets, cfg) {
     const C = Object.assign({}, CFG, cfg || {});
+    const required = (cfg && cfg.required) || Object.keys(ITEMS);
     const persons = dets.filter(d => d.cls === "Person" && d.conf >= C.personConf);
     const ppe = dets.filter(d => d.cls !== "Person" && d.conf >= C.ppeConf);
 
     return persons.map(p => {
       const ph = p.y2 - p.y1;
-      const head = { x1: p.x1, x2: p.x2, y1: p.y1, y2: p.y1 + ph * C.headFrac };
       const torso = { x1: p.x1, x2: p.x2, y1: p.y1 + ph * C.torsoTop, y2: p.y1 + ph * C.torsoBottom };
+      const head = { x1: p.x1, x2: p.x2, y1: p.y1, y2: p.y1 + ph * C.headFrac };
       const mine = ppe.filter(d => insideFrac(d, p) >= C.assocMin ||
         (d.cls.startsWith("no_") && insideFrac(d, p) >= 0.3));
       const of = (...names) => mine.filter(d => names.includes(d.cls));
+      const cyFrac = d => (center(d).y - p.y1) / ph;
 
-      const issues = [];
-      let helmet = "n/d", vest = "n/d";
+      const items = {}, issues = [];
+      Object.keys(ITEMS).forEach(k => {
+        const it = ITEMS[k], oks = of(it.ok), nos = of(it.no);
+        let st = "n/d", msg = null;
+        if (oks.length) {
+          const b = oks.slice().sort((a, c) => c.conf - a.conf)[0];
+          st = "ok";
+          if (k === "helmet" && (cyFrac(b) > C.helmetCenterMaxFrac || insideFrac(b, p) < C.helmetInsideMin)) {
+            st = "mal"; msg = "Casco presente pero fuera de la cabeza";
+          } else if (k === "vest" && inter(b, torso) / area(torso) < C.vestTorsoCoverMin) {
+            st = "mal"; msg = "Chaleco mal colocado o cubre poco el torso";
+          } else if (k === "goggles" && cyFrac(b) > C.headFrac) {
+            st = "mal"; msg = "Lentes fuera de la zona de los ojos";
+          } else if (k === "boots" && cyFrac(b) < C.bootsMinFrac) {
+            st = "mal"; msg = "Botas fuera de la zona de los pies";
+          } else if ((k === "gloves" || k === "boots") && nos.length) {
+            st = "mal"; msg = it.label + ": solo uno puesto (falta el otro)";
+          }
+        } else if (nos.length) {
+          st = "falta"; msg = "Sin " + it.label.toLowerCase();
+        }
+        items[k] = st;
+        if (msg && required.includes(k)) issues.push(msg);
+      });
 
-      // --- Casco ---
-      const hOk = of("helmet"), hNo = of("no_helmet");
-      if (hOk.length) {
-        const h = hOk.sort((a, b) => b.conf - a.conf)[0];
-        const cy = (center(h).y - p.y1) / ph;
-        const misplaced = cy > C.helmetCenterMaxFrac || insideFrac(h, p) < C.helmetInsideMin;
-        helmet = misplaced ? "mal" : "ok";
-        if (misplaced) issues.push("Casco presente pero fuera de la cabeza");
-      } else if (hNo.length) {
-        helmet = "falta"; issues.push("Sin casco");
-      }
-
-      // --- Chaleco ---
-      const vOk = of("vest"), vNo = of("no_vest");
-      if (vOk.length) {
-        const v = vOk.sort((a, b) => b.conf - a.conf)[0];
-        const cover = inter(v, torso) / area(torso);
-        vest = cover < C.vestTorsoCoverMin ? "mal" : "ok";
-        if (vest === "mal") issues.push("Chaleco mal colocado o cubre poco el torso");
-      } else if (vNo.length) {
-        vest = "falta"; issues.push("Sin chaleco");
-      }
-
-      const compliant = helmet === "ok" && vest === "ok";
-      return { person: p, head, torso, helmet, vest, compliant, issues };
+      const reqStates = required.map(k => items[k]);
+      const compliant = reqStates.length > 0 && reqStates.every(x => x === "ok");
+      return {
+        person: p, head, torso, items, required,
+        helmet: items.helmet, vest: items.vest,
+        compliant, missing: reqStates.includes("falta"), misplaced: reqStates.includes("mal"), issues
+      };
     });
   }
 
-  const api = { CFG, evaluate, nms, iou, insideFrac };
+  const api = { CFG, ITEMS, evaluate, nms, iou, insideFrac };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.EPPLogic = api;
 })(typeof self !== "undefined" ? self : this);
