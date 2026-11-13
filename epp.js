@@ -176,12 +176,20 @@
   }
 
   async function startCam() {
-    if (!(await loadModel())) return;
+    // 1) Cámara primero: así el permiso aparece de inmediato (el modelo tarda en cargar).
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { setStatus("Este navegador no permite usar la cámara (se requiere https)"); return; }
+    setStatus("Solicitando cámara…");
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 960 } }, audio: false });
-    } catch (e) { setStatus("No se pudo acceder a la cámara"); return; }
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 960 } }, audio: false });
+    } catch (e) {
+      setStatus(e && e.name === "NotAllowedError" ? "Permiso de cámara denegado: actívalo en el navegador" : "No se pudo acceder a la cámara");
+      return;
+    }
     const v = $("#eppVideo"); v.srcObject = stream; await v.play();
     $("#eppPlaceholder").style.display = "none"; $("#eppStop").style.display = "";
+    // 2) Modelo después (con aviso de progreso).
+    setStatus("Cargando modelo de IA (~10 MB), espera unos segundos…");
+    if (!(await loadModel())) return;
     running = true; loop();
   }
 
@@ -217,5 +225,7 @@
     $("#eppCam").onclick = () => { $("#eppStill").style.display = "none"; $("#eppVideo").style.display = ""; startCam(); };
     $("#eppStop").onclick = stopCam;
     $("#eppFile").onchange = e => fromFile(e.target.files[0]);
+    const pre = () => { if (location.hash === "#epp") loadModel(); };
+    window.addEventListener("hashchange", pre); pre();
   });
 })();
