@@ -187,6 +187,7 @@
     }
     const v = $("#eppVideo"); v.srcObject = stream; await v.play();
     $("#eppPlaceholder").style.display = "none"; $("#eppStop").style.display = "";
+    $("#eppSnap").style.display = ""; $("#eppAgain").style.display = "none";
     // 2) Modelo después (con aviso de progreso).
     setStatus("Cargando modelo de IA (~10 MB), espera unos segundos…");
     if (!(await loadModel())) return;
@@ -198,10 +199,41 @@
     if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     const v = $("#eppVideo"); if (v) v.srcObject = null;
     const s = $("#eppStop"); if (s) s.style.display = "none";
+    const sn = $("#eppSnap"); if (sn) sn.style.display = "none";
     const p = $("#eppPlaceholder"); if (p) p.style.display = "";
     if (session) setStatus("Detenido");
   }
   window.eppStop = stopCam;
+
+
+  async function snap() {
+    const v = $("#eppVideo");
+    if (!v.videoWidth) { setStatus("Espera a que la cámara muestre imagen"); return; }
+    const w = v.videoWidth, h = v.videoHeight;
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    c.getContext("2d").drawImage(v, 0, 0, w, h);
+    running = false;
+    while (busy) await new Promise(r => setTimeout(r, 50));
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    v.srcObject = null; v.style.display = "none";
+    const still = $("#eppStill"); still.src = c.toDataURL("image/jpeg", 0.92); still.style.display = "block";
+    $("#eppStop").style.display = "none"; $("#eppSnap").style.display = "none"; $("#eppAgain").style.display = "";
+    setStatus("Analizando captura…");
+    if (!(await loadModel())) return;
+    const t0 = performance.now();
+    const dets = await infer(c, w, h);
+    const evals = L.evaluate(dets);
+    draw(dets, evals, w, h); renderResults(evals); maybeLog(evals);
+    setStatus(`Captura analizada · ${(performance.now() - t0).toFixed(0)} ms`);
+  }
+
+  function again() {
+    $("#eppAgain").style.display = "none";
+    $("#eppResults").innerHTML = "";
+    const cv = $("#eppOverlay"); cv.getContext("2d").clearRect(0, 0, cv.width, cv.height);
+    $("#eppStill").style.display = "none"; $("#eppVideo").style.display = "";
+    startCam();
+  }
 
   async function fromFile(file) {
     if (!file || !(await loadModel())) return;
@@ -211,6 +243,7 @@
     const v = $("#eppVideo"); v.style.display = "none";
     const still = $("#eppStill"); still.src = img.src; still.style.display = "block";
     $("#eppPlaceholder").style.display = "none";
+    $("#eppStop").style.display = "none"; $("#eppSnap").style.display = "none"; $("#eppAgain").style.display = "";
     setStatus("Analizando imagen…");
     const t0 = performance.now();
     const dets = await infer(img, img.naturalWidth, img.naturalHeight);
@@ -224,6 +257,8 @@
     if (!$("#view-epp")) return;
     $("#eppCam").onclick = () => { $("#eppStill").style.display = "none"; $("#eppVideo").style.display = ""; startCam(); };
     $("#eppStop").onclick = stopCam;
+    $("#eppSnap").onclick = snap;
+    $("#eppAgain").onclick = again;
     $("#eppFile").onchange = e => fromFile(e.target.files[0]);
     const pre = () => { if (location.hash === "#epp") loadModel(); };
     window.addEventListener("hashchange", pre); pre();
